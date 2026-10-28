@@ -42,9 +42,9 @@
     }
   </script>
 
-  <!-- KaTeX CDN for high-speed mathematical output rendering -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+  <!-- KaTeX CDN for high-speed mathematical output rendering (Cloudflare cdnjs) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" crossorigin="anonymous"></script>
 
   <!-- MathLive CDN for interactive equation editing -->
   <link rel="stylesheet" href="https://unpkg.com/mathlive@0.98.6/dist/mathlive-static.css">
@@ -58,8 +58,8 @@
   <!-- Plotly.js CDN for 2D & 3D plotting -->
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
 
-  <!-- Pyodide CDN (Zero-Backend Python + SymPy WebAssembly) -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+  <!-- Pyodide CDN (Zero-Backend Python + SymPy WebAssembly via multi-CDN edge mirror) -->
+  <script id="pyodideScript" src="https://jsdelivr.b-cdn.net/pyodide/v0.26.1/full/pyodide.js" crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="styles.css" />
 </head>

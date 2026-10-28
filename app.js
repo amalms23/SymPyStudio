@@ -3929,20 +3929,125 @@ document.addEventListener('DOMContentLoaded', () => {
   bootPyodideKernel();
 });
 
+const PYODIDE_MIRRORS = [
+  { url: 'https://jsdelivr.b-cdn.net/pyodide/v0.26.1/full/', name: 'BunnyCDN' },
+  { url: 'https://cdn.jsdelivr.net/pyodide/v0.26.1/full/', name: 'jsDelivr' },
+  { url: 'https://fastly.jsdelivr.net/pyodide/v0.26.1/full/', name: 'Fastly' },
+  { url: 'https://gcore.jsdelivr.net/pyodide/v0.26.1/full/', name: 'GCore' },
+  { url: 'https://testingcf.jsdelivr.net/pyodide/v0.26.1/full/', name: 'Cloudflare' }
+];
+
+function ensurePyodideScriptLoaded(mirrorUrl) {
+  if (typeof loadPyodide === 'function') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const old = document.getElementById('pyodideScript');
+    if (old) old.remove();
+
+    const s = document.createElement('script');
+    s.id = 'pyodideScript';
+    s.src = `${mirrorUrl}pyodide.js`;
+    s.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => {
+      s.remove();
+      reject(new Error(`Timeout loading pyodide.js (20s)`));
+    }, 20000);
+    s.onload = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    s.onerror = (e) => {
+      clearTimeout(timer);
+      s.remove();
+      reject(new Error(`Network blocked/failed to load pyodide.js from ${mirrorUrl}`));
+    };
+    document.head.appendChild(s);
+  });
+}
+
 async function bootPyodideKernel() {
-  setKernelStatus('loading', '1/3 Loading Python WASM (~10MB)...');
+  let loadedPyodide = null;
+  let lastError = null;
+
+  for (let i = 0; i < PYODIDE_MIRRORS.length; i++) {
+    const { url: mirror, name: hostTag } = PYODIDE_MIRRORS[i];
+
+    try {
+      setKernelStatus('loading', `Connecting mirror ${i + 1}/${PYODIDE_MIRRORS.length} (${hostTag})...`);
+
+      // 1. Ensure pyodide.js loader function is available
+      if (typeof loadPyodide === 'undefined') {
+        await ensurePyodideScriptLoaded(mirror);
+      }
+
+      // 2. Load Pyodide core WASM (~10MB)
+      setKernelStatus('loading', `1/3 Loading Python WASM (~10MB, ${hostTag})...`);
+      const pyodideInstance = await Promise.race([
+        loadPyodide({
+          indexURL: mirror,
+          lockFileURL: `${mirror}pyodide-lock.json`
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout loading core Python WASM (60s)')), 60000))
+      ]);
+
+      // Explicitly configure Pyodide package CDN to match current verified mirror
+      if (pyodideInstance._api && typeof pyodideInstance._api.setCdnUrl === 'function') {
+        try {
+          pyodideInstance._api.setCdnUrl(mirror);
+        } catch (_) {}
+      }
+
+      // 3. Load SymPy CAS (~16MB with mpmath)
+      setKernelStatus('loading', `2/3 Loading SymPy CAS (~16MB, ${hostTag})...`);
+      try {
+        // Direct wheel URLs from this mirror prevent any fallback to blocked domains
+        await Promise.race([
+          pyodideInstance.loadPackage([
+            `${mirror}mpmath-1.3.0-py3-none-any.whl`,
+            `${mirror}sympy-1.12-py3-none-any.whl`
+          ]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout downloading SymPy wheels (90s)')), 90000))
+        ]);
+      } catch (wheelErr) {
+        console.warn(`Direct wheel load via ${mirror} failed, trying standard loadPackage:`, wheelErr);
+        await Promise.race([
+          pyodideInstance.loadPackage(['sympy']),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout downloading SymPy package (90s)')), 90000))
+        ]);
+      }
+
+      loadedPyodide = pyodideInstance;
+      break;
+    } catch (err) {
+      console.warn(`Pyodide load attempt via ${mirror} failed:`, err);
+      lastError = err;
+      if (i < PYODIDE_MIRRORS.length - 1) {
+        setKernelStatus('loading', `Mirror ${hostTag} failed, switching to mirror ${i + 2}/${PYODIDE_MIRRORS.length}...`);
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+  }
+
+  if (!loadedPyodide) {
+    console.error('All Pyodide initialization attempts failed:', lastError);
+    setKernelStatus('error', 'Kernel Error: Click to Retry');
+    const pill = document.getElementById('kernelStatusPill');
+    if (pill) {
+      pill.style.cursor = 'pointer';
+      pill.title = `Error: ${lastError?.message || lastError}. Click to retry.`;
+      pill.onclick = () => {
+        pill.onclick = null;
+        bootPyodideKernel();
+      };
+    }
+    return;
+  }
+
   try {
-    const pyodide = await loadPyodide({
-      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.1/full/'
-    });
-    setKernelStatus('loading', '2/3 Loading SymPy CAS (~12MB)...');
-    await pyodide.loadPackage(['sympy']);
-
     setKernelStatus('loading', '3/3 Initializing CAS & Suites...');
-    await pyodide.runPythonAsync(PYTHON_BOOTSTRAP_CODE);
-    await pyodide.runPythonAsync(PYTHON_EVAL_RUNNER);
+    await loadedPyodide.runPythonAsync(PYTHON_BOOTSTRAP_CODE);
+    await loadedPyodide.runPythonAsync(PYTHON_EVAL_RUNNER);
 
-    AppState.pyodide = pyodide;
+    AppState.pyodide = loadedPyodide;
     AppState.kernelReady = true;
     setKernelStatus('ready', 'Kernel: Ready (SymPy Active)');
 
@@ -3952,11 +4057,12 @@ async function bootPyodideKernel() {
       await activateKernelSessionForTab(activeTab);
     }
   } catch (err) {
-    console.error('Pyodide initialization error:', err);
-    setKernelStatus('error', 'Kernel Error: Click to Retry');
+    console.error('Pyodide post-boot bootstrap error:', err);
+    setKernelStatus('error', 'CAS Error: Click to Retry');
     const pill = document.getElementById('kernelStatusPill');
     if (pill) {
       pill.style.cursor = 'pointer';
+      pill.title = `Error: ${err?.message || err}. Click to retry.`;
       pill.onclick = () => {
         pill.onclick = null;
         bootPyodideKernel();
@@ -4644,7 +4750,6 @@ function buildCellDOM(cell, idx) {
   rawTextarea.value = cell.code || '';
   if (isCodeMode) {
     initCodeEditorForCell(cell, rawTextarea);
-    scheduleCodePreview(cell, 50);
   } else {
     rawTextarea.addEventListener('input', () => {
       cell.code = rawTextarea.value;
@@ -5961,7 +6066,7 @@ function renderTabsBar() {
   });
 }
 
-async function activateKernelSessionForTab(tab) {
+async function activateKernelSessionForTab(tab, autoEval = false) {
   if (!AppState.kernelReady || !AppState.pyodide || !tab) return;
   AppState.pyodide.globals.set('_tab_id', tab.id);
   const parsed = JSON.parse(await AppState.pyodide.runPythonAsync('switch_session(_tab_id)'));
@@ -5971,7 +6076,9 @@ async function activateKernelSessionForTab(tab) {
     AppState.evalCounter = 0;
     updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
     await syncSavedAssumptionsToKernel();
-    await evaluateAllCells();
+    if (autoEval) {
+      await evaluateAllCells();
+    }
   } else if (parsed.session) {
     updateVariableInspectorUI(parsed.session);
   }
@@ -6144,7 +6251,7 @@ function loadNotebookFromStorageOrDefault() {
   saveNotebookToLocalStorage();
 }
 
-async function loadPresetNotebook(presetKey, autoEval = true, tabName = null) {
+async function loadPresetNotebook(presetKey, autoEval = false, tabName = null) {
   const presetCells = PRESET_NOTEBOOKS[presetKey] || PRESET_NOTEBOOKS.default;
   // Fresh ids so the same template can be open in several tabs at once
   const cells = presetCells.map(c => createCellModel({ ...c, id: undefined }));
@@ -6161,7 +6268,7 @@ async function loadPresetNotebook(presetKey, autoEval = true, tabName = null) {
     renderTabsBar();
     renderAllCells();
     saveNotebookToLocalStorage();
-    if (autoEval) await activateKernelSessionForTab(current);
+    await activateKernelSessionForTab(current, autoEval);
   } else {
     await openNewTab(name, cells, {});
   }
