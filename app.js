@@ -16,7 +16,7 @@ const AppState = {
   cells: [],             // always the cells array of the active tab
   activeCellId: null,
   evalCounter: 0,
-  sidebarOpen: true,
+  sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   paletteOpen: true,
   symbolAssumptions: {}, // { symName: { positive, real, integer, nonzero } }
   codeMirrors: {},       // { cellId: CodeMirrorInstance }
@@ -2576,12 +2576,53 @@ function initUIHandlers() {
     }
   });
 
-  // Toggle Variable Inspector Sidebar
+  // Toggle Variable Inspector Sidebar (Responsive Drawer on Mobile/Tablet, Docked on Desktop)
+  function updateSidebarVisibility() {
+    const isDesktop = window.innerWidth >= 1024;
+    const sidebar = document.getElementById('inspectorSidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar) return;
+
+    if (isDesktop) {
+      if (backdrop) backdrop.classList.add('hidden');
+      sidebar.classList.remove('sidebar-open-mobile');
+      sidebar.classList.toggle('sidebar-closed-desktop', !AppState.sidebarOpen);
+    } else {
+      sidebar.classList.remove('sidebar-closed-desktop');
+      sidebar.classList.toggle('sidebar-open-mobile', AppState.sidebarOpen);
+      if (backdrop) {
+        backdrop.classList.toggle('hidden', !AppState.sidebarOpen);
+      }
+    }
+  }
+
   document.getElementById('btnToggleSidebar').addEventListener('click', () => {
     AppState.sidebarOpen = !AppState.sidebarOpen;
-    const sidebar = document.getElementById('inspectorSidebar');
-    sidebar.classList.toggle('hidden', !AppState.sidebarOpen);
+    updateSidebarVisibility();
   });
+
+  const btnCloseSidebarMobile = document.getElementById('btnCloseSidebarMobile');
+  if (btnCloseSidebarMobile) {
+    btnCloseSidebarMobile.addEventListener('click', () => {
+      AppState.sidebarOpen = false;
+      updateSidebarVisibility();
+    });
+  }
+
+  const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', () => {
+      AppState.sidebarOpen = false;
+      updateSidebarVisibility();
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    updateSidebarVisibility();
+  });
+
+  // Apply initial sidebar visibility
+  updateSidebarVisibility();
 
   // Symbolic Assumptions Manager Apply Button
   const btnApplyAssumptions = document.getElementById('btnApplyAssumptions');
@@ -2863,37 +2904,38 @@ function buildCellDOM(cell, idx) {
   card.innerHTML = `
     ${titleBannerHtml}
     <!-- 1. Cell Header Bar with Dual-Mode Switcher & Bi-Directional Bridge -->
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5 pb-1.5 border-b border-borderWarm/70">
-      <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2 pb-1.5 border-b border-borderWarm/70">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span class="cell-drag-handle cursor-grab text-muted hover:text-ink print-hidden" title="Move Cell Up/Down">
           <button class="btn-move-up hover:text-cobalt px-0.5" title="Move Cell Up">&uarr;</button>
           <button class="btn-move-down hover:text-cobalt px-0.5" title="Move Cell Down">&darr;</button>
         </span>
-        <span class="cell-in-badge font-mono font-semibold text-xs text-cobalt bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200/80 select-none">
+        <span class="cell-in-badge font-mono font-semibold text-xs text-cobalt bg-blue-50/80 px-1.5 sm:px-2 py-0.5 rounded border border-blue-200/80 select-none">
           ${inLabel}
         </span>
-        <span class="cell-mode-label text-xs font-medium text-muted hidden md:inline">
+        <span class="cell-mode-label text-xs font-medium text-muted hidden md:inline truncate max-w-[200px]">
           ${isCodeMode ? 'Direct SymPy Code (Python Script)' : (OPERATIONS[cell.operation]?.label || 'Symbolic Evaluation')}
         </span>
       </div>
 
-      <div class="flex flex-wrap items-center gap-1.5 print-hidden">
+      <div class="flex flex-wrap items-center gap-1 sm:gap-1.5 print-hidden ml-auto">
         <!-- Dual-Mode Toggle Pill -->
         <div class="inline-flex rounded-md bg-subtle p-0.5 border border-borderWarm text-[11px] font-medium">
-          <button type="button" class="btn-mode-visual px-2 py-0.5 rounded transition ${!isCodeMode ? 'bg-surface text-cobalt shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
+          <button type="button" class="btn-mode-visual px-1.5 sm:px-2 py-0.5 rounded transition ${!isCodeMode ? 'bg-surface text-cobalt shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
             Visual Math
           </button>
-          <button type="button" class="btn-mode-code px-2 py-0.5 rounded font-mono transition ${isCodeMode ? 'bg-zinc-900 text-emerald-400 shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
+          <button type="button" class="btn-mode-code px-1.5 sm:px-2 py-0.5 rounded font-mono transition ${isCodeMode ? 'bg-zinc-900 text-emerald-400 shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
             SymPy Code
           </button>
         </div>
 
         <!-- Bi-Directional Bridge Button: Convert Visual Math -> SymPy Code -->
-        <button type="button" class="btn-convert-to-code ${isCodeMode ? 'hidden' : 'inline-flex'} items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition" title="Convert Visual Equation + Selected Operation into Editable SymPy Python Code">
-          <span>&rarr; Convert to SymPy Code</span>
+        <button type="button" class="btn-convert-to-code ${isCodeMode ? 'hidden' : 'inline-flex'} items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition" title="Convert Visual Equation + Selected Operation into Editable SymPy Python Code">
+          <span class="hidden sm:inline">&rarr; Convert to SymPy Code</span>
+          <span class="sm:hidden">&rarr; Code</span>
         </button>
 
-        <span class="cell-time-badge">${timeBadge}</span>
+        <span class="cell-time-badge hidden sm:inline">${timeBadge}</span>
         <button class="btn-delete-cell text-muted hover:text-red-600 p-1 rounded hover:bg-red-50 transition" title="Delete Cell">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -2925,26 +2967,26 @@ function buildCellDOM(cell, idx) {
     </div>
 
     <!-- 3. Execution Controls & Parameter Bar -->
-    <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs print-hidden">
-      <div class="visual-controls-bar flex flex-wrap items-center gap-2 ${isCodeMode ? 'hidden' : ''}">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 text-xs print-hidden">
+      <div class="visual-controls-bar flex flex-wrap items-center gap-1.5 sm:gap-2 ${isCodeMode ? 'hidden' : ''}">
         <!-- Operation Selector -->
-        <select class="cell-op-select bg-subtle hover:bg-zinc-200/60 text-ink font-medium rounded px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:border-cobalt cursor-pointer">
+        <select class="cell-op-select w-full sm:w-auto bg-subtle hover:bg-zinc-200/60 text-ink font-medium rounded px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:border-cobalt cursor-pointer">
           ${opOptionsHtml}
         </select>
 
         <!-- Dynamic Operation Parameters Container -->
-        <div class="cell-params-container flex flex-wrap items-center gap-2"></div>
+        <div class="cell-params-container flex flex-wrap items-center gap-1.5 sm:gap-2"></div>
       </div>
 
-      <div class="flex items-center gap-2 ml-auto">
+      <div class="flex items-center justify-between sm:justify-end gap-2 sm:ml-auto w-full sm:w-auto">
         <!-- Assign to Variable Optional Field -->
         <label class="flex items-center gap-1.5 bg-subtle/70 px-2 py-1 rounded border border-borderWarm text-muted">
-          <span class="text-[11px] font-mono">Assign to:</span>
-          <input type="text" class="cell-assign-input w-20 bg-surface px-1.5 py-0.5 rounded border border-borderWarm font-mono text-xs text-ink focus:outline-none focus:border-cobalt" placeholder="e.g. Sol1" value="${cell.assignTo || ''}" />
+          <span class="text-[11px] font-mono">Assign:</span>
+          <input type="text" class="cell-assign-input w-16 sm:w-20 bg-surface px-1.5 py-0.5 rounded border border-borderWarm font-mono text-xs text-ink focus:outline-none focus:border-cobalt" placeholder="e.g. Sol1" value="${cell.assignTo || ''}" />
         </label>
 
         <!-- Evaluate Button -->
-        <button class="btn-evaluate-cell px-3.5 py-1.5 rounded-md bg-cobalt hover:bg-blue-800 text-white font-semibold shadow-2xs transition flex items-center gap-1.5">
+        <button class="btn-evaluate-cell px-3.5 py-1.5 rounded-md bg-cobalt hover:bg-blue-800 text-white font-semibold shadow-2xs transition flex items-center gap-1.5 ml-auto sm:ml-0">
           <span>${isCodeMode ? 'Run Script' : 'Evaluate'}</span>
           <kbd class="text-[10px] font-mono bg-blue-900/60 px-1 rounded hidden sm:inline">&crarr;</kbd>
         </button>
@@ -3485,9 +3527,9 @@ function renderCellOutput(card, cell) {
       ${stdoutHtml}
 
       <!-- Optional Plotly Canvas Container + Interactive Sliders -->
-      <div class="plotly-output-container ${out.plotData ? 'mt-3 p-2.5 bg-surface border border-borderWarm rounded-lg' : 'hidden'}">
+      <div class="plotly-output-container ${out.plotData ? 'mt-3 p-2 sm:p-2.5 bg-surface border border-borderWarm rounded-lg' : 'hidden'}">
         ${slidersHtml}
-        <div id="plot_${cell.id}" class="w-full h-96"></div>
+        <div id="plot_${cell.id}" class="w-full h-72 sm:h-96"></div>
       </div>
 
       <!-- Collapsible Accordion: Show Equivalent SymPy Code -->
@@ -3612,11 +3654,17 @@ function renderPlotlyChart(containerId, plotData, isUpdate = false) {
   if (!el || typeof Plotly === 'undefined') return;
 
   const paletteColors = ['#1D4ED8', '#C2410C', '#15803D', '#7C3AED', '#0F766E'];
+  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
   const layoutBase = {
     paper_bgcolor: '#FFFFFF',
     plot_bgcolor: '#FAF8F5',
-    margin: { l: 52, r: 28, t: 40, b: 46 },
-    font: { family: 'IBM Plex Sans, sans-serif', size: 11, color: '#18181B' },
+    margin: {
+      l: isSmallScreen ? 38 : 52,
+      r: isSmallScreen ? 14 : 28,
+      t: isSmallScreen ? 32 : 40,
+      b: isSmallScreen ? 36 : 46
+    },
+    font: { family: 'IBM Plex Sans, sans-serif', size: isSmallScreen ? 10 : 11, color: '#18181B' },
   };
 
   const plotFn = isUpdate ? Plotly.react : Plotly.newPlot;

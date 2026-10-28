@@ -240,3 +240,81 @@ math-field::part(menu-toggle) {
 .code-preview-row + .code-preview-row { border-top: 1px dashed rgba(29, 78, 216, 0.12); }
 .notebook-tab { margin-bottom: -1px; }
 
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVENESS ENHANCEMENTS
+   ========================================================================== */
+
+/* Drawer behavior for Inspector Sidebar on screens < 1024px */
+@media (max-width: 1023px) {
+  #inspectorSidebar.sidebar-open-mobile {
+    transform: translateX(0) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  #inspectorSidebar.sidebar-closed-desktop {
+    display: none !important;
+  }
+}
+
+/* Smooth Touch Scrolling on mobile/tablets */
+.ribbon-panel,
+#notebookTabsBar,
+#ribbonTabs,
+#mathPaletteDrawer,
+.katex-output-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars on modern browsers for cleaner look on small devices */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile & Tablet adjustments (< 768px) */
+@media (max-width: 768px) {
+  math-field {
+    font-size: 1.05rem;
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .palette-btn {
+    min-width: 32px;
+    height: 30px;
+    font-size: 0.85rem;
+  }
+
+  .notebook-cell {
+    padding: 0.75rem !important;
+  }
+
+  .CodeMirror {
+    font-size: 0.8rem !important;
+  }
+
+  .CodeMirror-lines {
+    padding: 4px 0 !important;
+  }
+
+  .CodeMirror-linenumber {
+    padding: 0 4px !important;
+  }
+
+  /* Increase tap targets for buttons on mobile */
+  .btn-evaluate-cell,
+  .op-preset-btn,
+  .btn-mode-visual,
+  .btn-mode-code {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+
