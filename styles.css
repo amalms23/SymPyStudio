@@ -1,0 +1,242 @@
+/* SymPyStudio — Academic Technical Styling */
+
+:root {
+  --bg-paper: #FAF8F5;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F3EFEA;
+  --text-ink: #18181B;
+  --text-muted: #52525B;
+  --accent-cobalt: #1D4ED8;
+  --accent-terracotta: #C2410C;
+  --accent-emerald: #15803D;
+  --border-warm: #E4E2DD;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-paper);
+}
+::-webkit-scrollbar-thumb {
+  background: #D4D0C8;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}
+
+/* MathLive <math-field> Customization */
+math-field {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 14px;
+  font-size: 1.2rem;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-warm);
+  border-radius: 0.5rem;
+  color: var(--text-ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  --hue: 221;
+  --highlight-inactive: #EFF6FF;
+  --caret-color: #1D4ED8;
+  --selection-background-color: #DBEAFE;
+  --selection-color: #1E3A8A;
+  --contains-highlight-background-color: #F8FAFC;
+}
+
+math-field:focus-within {
+  outline: none;
+  border-color: var(--accent-cobalt);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+}
+
+/* Hide MathLive virtual keyboard toggle if we already have our custom top palette, or keep it subtle */
+math-field::part(virtual-keyboard-toggle) {
+  color: #71717A;
+  opacity: 0.65;
+}
+math-field::part(virtual-keyboard-toggle):hover {
+  opacity: 1;
+  color: var(--accent-cobalt);
+}
+math-field::part(menu-toggle) {
+  display: none;
+}
+
+/* Palette Button Styling */
+.palette-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-warm);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: var(--text-ink);
+  box-shadow: 0 1px 1px rgba(0,0,0,0.03);
+  transition: all 0.12s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.palette-btn:hover {
+  background-color: var(--accent-cobalt);
+  color: #FFFFFF;
+  border-color: var(--accent-cobalt);
+  transform: translateY(-1px);
+}
+
+.palette-btn:active {
+  transform: translateY(0);
+}
+
+/* Notebook Cell Card Styling */
+.notebook-cell {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-warm);
+  border-left: 4px solid #CBD5E1;
+  border-radius: 0.65rem;
+  box-shadow: 0 1px 3px rgba(24, 24, 27, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notebook-cell.active-cell {
+  border-left-color: var(--accent-cobalt);
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.07);
+}
+
+.notebook-cell.dragging {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+/* Output KaTeX overflow handling */
+.katex-output-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+  font-size: 1.2rem;
+}
+
+.katex-display {
+  margin: 0.35em 0 !important;
+}
+
+/* Floating Add Cell Divider */
+.cell-divider-add {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.notebook-cell-wrapper:hover .cell-divider-add,
+.cell-divider-add:focus-within {
+  opacity: 1;
+}
+
+/* Direct SymPy Code Mode (CodeMirror & Fallback Editor) */
+.code-editor-wrapper {
+  border: 1px solid #27272A;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #18181B;
+}
+
+.code-editor-wrapper .CodeMirror {
+  height: auto;
+  min-height: 92px;
+  max-height: 440px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: #18181B;
+  color: #F4F4F5;
+  padding: 6px 0;
+}
+
+.code-editor-wrapper .CodeMirror-gutters {
+  background: #18181B;
+  border-right: 1px solid #27272A;
+}
+
+.code-editor-wrapper .CodeMirror-linenumber {
+  color: #71717A;
+  padding: 0 8px;
+}
+
+.code-editor-wrapper .CodeMirror-cursor {
+  border-left: 2px solid #60A5FA !important;
+}
+
+.code-editor-wrapper .CodeMirror-selected {
+  background: rgba(59, 130, 246, 0.28) !important;
+}
+
+.code-editor-wrapper .cm-s-default .cm-keyword { color: #C084FC; font-weight: 600; }
+.code-editor-wrapper .cm-s-default .cm-builtin { color: #38BDF8; }
+.code-editor-wrapper .cm-s-default .cm-def { color: #60A5FA; font-weight: 600; }
+.code-editor-wrapper .cm-s-default .cm-variable { color: #F4F4F5; }
+.code-editor-wrapper .cm-s-default .cm-variable-2 { color: #93C5FD; }
+.code-editor-wrapper .cm-s-default .cm-number { color: #FBBF24; }
+.code-editor-wrapper .cm-s-default .cm-string { color: #86EFAC; }
+.code-editor-wrapper .cm-s-default .cm-comment { color: #71717A; font-style: italic; }
+.code-editor-wrapper .cm-s-default .cm-operator { color: #F472B6; }
+
+.code-fallback-textarea {
+  width: 100%;
+  min-height: 110px;
+  background: #18181B;
+  color: #F4F4F5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 10px 14px;
+  border: none;
+  outline: none;
+  resize: vertical;
+}
+
+.notebook-cell.code-mode-cell {
+  border-left-color: #10B981;
+}
+
+.notebook-cell.code-mode-cell.active-cell {
+  border-left-color: var(--accent-cobalt);
+}
+
+/* Print / PDF Export Styles */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .print-hidden {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  #notebookScrollContainer {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .notebook-cell {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #D4D4D8 !important;
+    border-left: 3px solid #1D4ED8 !important;
+    margin-bottom: 1rem !important;
+  }
+}
+
+/* Live code -> visual math preview rows */
+.code-preview-row { padding: 2px 0; white-space: nowrap; }
+.code-preview-row + .code-preview-row { border-top: 1px dashed rgba(29, 78, 216, 0.12); }
+.notebook-tab { margin-bottom: -1px; }
+

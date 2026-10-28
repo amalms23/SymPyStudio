@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SymPyStudio — Visual CAS Notebook with Persistent Memory</title>
+
+  <!-- Fonts: IBM Plex Sans, JetBrains Mono, Crimson Pro (Academic Serif) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+            serif: ['"Crimson Pro"', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            paper: '#FAF8F5',
+            surface: '#FFFFFF',
+            subtle: '#F3EFEA',
+            ink: '#18181B',
+            muted: '#52525B',
+            cobalt: '#1D4ED8',
+            terracotta: '#C2410C',
+            // Keep the full shade scale so utilities like bg-emerald-50 / text-emerald-400 still resolve
+            emerald: {
+              DEFAULT: '#15803D',
+              50: '#ECFDF5', 100: '#D1FAE5', 200: '#A7F3D0', 300: '#6EE7B7', 400: '#34D399',
+              500: '#10B981', 600: '#059669', 700: '#047857', 800: '#065F46', 900: '#064E3B', 950: '#022C22'
+            },
+            borderWarm: '#E4E2DD'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- KaTeX CDN for high-speed mathematical output rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+
+  <!-- MathLive CDN for interactive equation editing -->
+  <link rel="stylesheet" href="https://unpkg.com/mathlive@0.98.6/dist/mathlive-static.css">
+  <script defer src="https://unpkg.com/mathlive@0.98.6"></script>
+
+  <!-- CodeMirror 5 CDN for Python / SymPy Direct Code Mode -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+
+  <!-- Plotly.js CDN for 2D & 3D plotting -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+
+  <!-- Pyodide CDN (Zero-Backend Python + SymPy WebAssembly) -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-paper text-ink font-sans antialiased selection:bg-blue-100 selection:text-cobalt h-screen flex flex-col overflow-hidden">
+
+  <!-- TOP HEADER BAR -->
+  <header class="h-14 bg-surface border-b border-borderWarm px-4 flex items-center justify-between shrink-0 z-30 shadow-2xs print-hidden">
+    <!-- Brand & Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-cobalt text-white flex items-center justify-center font-serif font-bold text-xl shadow-xs select-none">
+        &Sigma;
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-serif font-bold text-lg tracking-tight text-ink leading-none">SymPyStudio</h1>
+          <span class="text-[11px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-subtle text-muted border border-borderWarm font-medium">CAS v3.0</span>
+        </div>
+        <p class="text-xs text-muted hidden sm:block">Dual-Mode Symbolic CAS &amp; Physics/Mechanics Engineering Notebook</p>
+      </div>
+    </div>
+
+    <!-- Kernel Status Pill & Templates Vault -->
+    <div class="flex items-center gap-3">
+      <!-- Domain-Specific Template Vault Dropdown -->
+      <div class="relative">
+        <select id="presetSelector" class="text-xs bg-subtle hover:bg-zinc-200/70 text-ink font-semibold rounded-md px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:ring-2 focus:ring-cobalt/20 cursor-pointer transition">
+          <option value="">Templates &amp; Physics Workflows...</option>
+          <optgroup label="Start Fresh">
+            <option value="blank">Empty Notebook (Blank Note)</option>
+          </optgroup>
+          <optgroup label="Domain Physics &amp; Mechanics Vault">
+            <option value="elasticity_2d">1. Solid Mechanics &amp; 2D Elasticity (Airy Stress &amp; Von Mises)</option>
+            <option value="kirchhoff_plate">2. Kirchhoff-Love Thin Plate Bending (Navier SSSS Method)</option>
+            <option value="magnetostatics">3. Magnetostatics &amp; Electrodynamics (Biot-Savart &amp; Maxwell)</option>
+            <option value="vibration_2dof">4. Vibration &amp; 2-DOF Structural Dynamics (Modal Analysis)</option>
+          </optgroup>
+          <optgroup label="Foundational CAS Starters">
+            <option value="default">Default Calculus &amp; 3D Surface Starter</option>
+            <option value="harmonic">Damped Harmonic Oscillator &amp; Phase Plot</option>
+            <option value="electrostatics">Electrostatics &amp; Multipole Taylor Series</option>
+            <option value="linalg">Coupled Oscillators &amp; Eigenmodes (Matrix)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Kernel Status Pill -->
+      <div id="kernelStatusPill" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all">
+        <span id="kernelSpinner" class="w-2.5 h-2.5 rounded-full border-2 border-amber-600 border-t-transparent animate-spin"></span>
+        <span id="kernelDot" class="w-2 h-2 rounded-full bg-amber-500 hidden"></span>
+        <span id="kernelStatusText">Kernel: Initializing Pyodide &amp; SymPy...</span>
+      </div>
+    </div>
+
+    <!-- Notebook File & Persistence Actions -->
+    <div class="flex items-center gap-1.5">
+      <button id="btnEvaluateAll" title="Evaluate All Cells sequentially" class="px-2.5 py-1.5 rounded-md text-xs font-medium bg-cobalt/10 text-cobalt hover:bg-cobalt hover:text-white transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6V4z"/></svg>
+        <span class="hidden md:inline">Run All</span>
+      </button>
+
+      <div class="h-4 w-[1px] bg-borderWarm mx-1"></div>
+
+      <button id="btnSaveJson" title="Download Notebook (.json)" class="px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span class="hidden lg:inline">Save (.json)</span>
+      </button>
+
+      <label for="inputLoadJson" title="Load Saved Notebook (.json)" class="px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition flex items-center gap-1.5 cursor-pointer">
+        <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <span class="hidden lg:inline">Load (.json)</span>
+        <input id="inputLoadJson" type="file" accept=".json" class="hidden" />
+      </label>
+
+      <button id="btnExportPrint" title="Export as Printable PDF / Clean HTML View" class="px-2.5 py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        <span class="hidden xl:inline">Export PDF/HTML</span>
+      </button>
+
+      <button id="btnToggleSidebar" title="Toggle Variable Inspector Sidebar" class="ml-1 p-1.5 rounded-md text-muted hover:text-ink hover:bg-subtle border border-borderWarm transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- STICKY CATEGORIZED OPERATIONS RIBBON & SYMBOL PALETTE -->
+  <section class="bg-surface border-b border-borderWarm shrink-0 z-20 shadow-xs print-hidden">
+    <!-- Top Row: 5 Categorized Operation Tabs + Toggle Symbol Keypad -->
+    <div class="px-4 flex items-center justify-between border-b border-borderWarm/70 bg-subtle/50 overflow-x-auto">
+      <div class="flex items-center space-x-1" role="tablist" id="ribbonTabs">
+        <button data-tab="tab-calculus" class="ribbon-tab active px-3.5 py-2 text-xs font-semibold border-b-2 border-cobalt text-cobalt flex items-center gap-1.5 whitespace-nowrap">
+          <span>1. Calculus &amp; Analysis</span>
+        </button>
+        <button data-tab="tab-algebra" class="ribbon-tab px-3.5 py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+          <span>2. Algebra &amp; Solvers</span>
+        </button>
+        <button data-tab="tab-linalg" class="ribbon-tab px-3.5 py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+          <span>3. Linear Algebra &amp; Vectors</span>
+        </button>
+        <button data-tab="tab-ode" class="ribbon-tab px-3.5 py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+          <span>4. Differential Equations (ODE)</span>
+        </button>
+        <button data-tab="tab-plotter" class="ribbon-tab px-3.5 py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+          <span>5. Function &amp; Field Plotter</span>
+        </button>
+        <button data-tab="tab-docs" class="ribbon-tab px-3.5 py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+          <svg class="w-3.5 h-3.5 text-cobalt" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          <span>6. Documentation &amp; Guide</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3 py-1 pl-3 shrink-0">
+        <span id="activeCellIndicator" class="text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded border border-borderWarm">
+          Target: In[1]
+        </span>
+        <button id="btnTogglePalette" class="text-xs font-medium text-cobalt hover:underline flex items-center gap-1">
+          <span>Math Palettes</span>
+          <svg id="paletteChevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Ribbon Tab Action Panels -->
+    <div class="px-4 py-2 bg-surface border-b border-borderWarm/60 text-xs">
+      <!-- TAB 1: CALCULUS & ANALYSIS -->
+      <div id="tab-calculus" class="ribbon-panel flex flex-wrap items-center gap-2">
+        <span class="text-[11px] font-mono uppercase text-muted mr-1">Configure Active Cell:</span>
+        <button data-op="eval" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Standard Evaluate
+        </button>
+        <button data-op="diff" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition flex items-center gap-1">
+          <span>Differentiate</span> <span class="font-serif italic text-muted group-hover:text-white">(d/dx, &part;/&part;x)</span>
+        </button>
+        <button data-op="integrate_indef" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Indefinite Integral (&int; f dx)
+        </button>
+        <button data-op="integrate_def" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Definite Integral (&int;<sub>a</sub><sup>b</sup> f dx)
+        </button>
+        <button data-op="limit" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Limit (lim x&rarr;a)
+        </button>
+        <button data-op="series" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Taylor / Series Expansion
+        </button>
+        <button data-op="sum" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Symbolic Summation (&Sigma;)
+        </button>
+      </div>
+
+      <!-- TAB 2: ALGEBRA & EQUATION SOLVERS -->
+      <div id="tab-algebra" class="ribbon-panel hidden flex-wrap items-center gap-2">
+        <span class="text-[11px] font-mono uppercase text-muted mr-1">Algebra &amp; Solvers:</span>
+        <button data-op="solve" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Solve for Variable (f(x) = 0)
+        </button>
+        <button data-op="solve_system" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Simultaneous Equations Solver
+        </button>
+        <div class="h-4 w-[1px] bg-borderWarm mx-1"></div>
+        <button data-op="simplify" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Simplify
+        </button>
+        <button data-op="expand" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Expand
+        </button>
+        <button data-op="factor" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Factor
+        </button>
+        <button data-op="apart" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Partial Fractions (apart)
+        </button>
+        <button data-op="trigsimp" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Trig Simplify
+        </button>
+      </div>
+
+      <!-- TAB 3: LINEAR ALGEBRA & VECTORS -->
+      <div id="tab-linalg" class="ribbon-panel hidden flex-wrap items-center gap-2">
+        <span class="text-[11px] font-mono uppercase text-muted mr-1">Insert Matrix:</span>
+        <button data-matrix="2" class="matrix-insert-btn px-2 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-mono font-medium transition">
+          2&times;2 Grid
+        </button>
+        <button data-matrix="3" class="matrix-insert-btn px-2 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-mono font-medium transition">
+          3&times;3 Grid
+        </button>
+        <button data-matrix="4" class="matrix-insert-btn px-2 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-mono font-medium transition">
+          4&times;4 Grid
+        </button>
+        <button id="btnOpenMatrixModal" class="px-2.5 py-1 rounded bg-cobalt text-white hover:bg-blue-800 font-medium transition">
+          Visual Matrix Builder...
+        </button>
+        <div class="h-4 w-[1px] bg-borderWarm mx-1"></div>
+        <button data-op="mat_det" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          det(A)
+        </button>
+        <button data-op="mat_inv" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Inverse A<sup>-1</sup>
+        </button>
+        <button data-op="mat_transpose" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Transpose A<sup>T</sup>
+        </button>
+        <button data-op="mat_trace" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Trace
+        </button>
+        <button data-op="mat_charpoly" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          CharPoly
+        </button>
+        <button data-op="mat_eigen" class="op-preset-btn px-2 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Eigenvalues &amp; Vectors
+        </button>
+        <div class="h-4 w-[1px] bg-borderWarm mx-1"></div>
+        <button data-op="vec_grad" class="op-preset-btn px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-600 hover:text-white font-medium transition">
+          Grad (&nabla;&phi;)
+        </button>
+        <button data-op="vec_div" class="op-preset-btn px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-600 hover:text-white font-medium transition">
+          Div (&nabla;&middot;F)
+        </button>
+        <button data-op="vec_curl" class="op-preset-btn px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-600 hover:text-white font-medium transition">
+          Curl (&nabla;&times;F)
+        </button>
+        <button data-op="vec_laplacian" class="op-preset-btn px-2 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-600 hover:text-white font-medium transition">
+          Laplacian (&nabla;&sup2;&phi;)
+        </button>
+      </div>
+
+      <!-- TAB 4: DIFFERENTIAL EQUATIONS (ODE) -->
+      <div id="tab-ode" class="ribbon-panel hidden flex-wrap items-center gap-2">
+        <span class="text-[11px] font-mono uppercase text-muted mr-1">ODE Symbolic Solver:</span>
+        <button data-op="ode_solve" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">
+          Solve 1st / 2nd Order ODE (dsolve)
+        </button>
+        <button data-ode-template="first_order" class="ode-template-btn px-2.5 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-medium transition">
+          Insert 1st-Order Template: y'(x) + k y(x) = 0
+        </button>
+        <button data-ode-template="harmonic" class="ode-template-btn px-2.5 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-medium transition">
+          Insert Damped Oscillator: y''(x) + 2&zeta;&omega; y'(x) + &omega;&sup2; y(x) = 0
+        </button>
+        <button data-ode-template="rlc" class="ode-template-btn px-2.5 py-1 rounded bg-blue-50 text-cobalt border border-blue-200 hover:bg-cobalt hover:text-white font-medium transition">
+          Insert Driven ODE: y''(x) + y(x) = cos(2x)
+        </button>
+      </div>
+
+      <!-- TAB 5: FUNCTION & FIELD PLOTTER -->
+      <div id="tab-plotter" class="ribbon-panel hidden flex-wrap items-center gap-2">
+        <span class="text-[11px] font-mono uppercase text-muted mr-1">Plotting Gallery &amp; Parameter Explorer:</span>
+        <button data-op="plot_2d" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition flex items-center gap-1.5">
+          <span>1. 2D Curves &amp; Overlays</span> <span class="font-mono text-[10px] opacity-75">y = f(x)</span>
+        </button>
+        <button data-op="plot_parametric" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition flex items-center gap-1.5">
+          <span>2. 2D Parametric</span> <span class="font-mono text-[10px] opacity-75">x(t), y(t)</span>
+        </button>
+        <button data-op="plot_3d" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition flex items-center gap-1.5">
+          <span>3. 3D Surface &amp; Contours</span> <span class="font-mono text-[10px] opacity-75">z = f(x, y)</span>
+        </button>
+        <button data-op="plot_vector_2d" class="op-preset-btn px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition flex items-center gap-1.5">
+          <span>4. 2D Vector Field Quiver</span> <span class="font-mono text-[10px] opacity-75">F(x, y) / &nabla;&phi;</span>
+        </button>
+        <span class="text-[11px] text-muted ml-1 hidden xl:inline">Auto-generates live parameter sliders for unbound symbols.</span>
+      </div>
+
+      <!-- TAB 6: DOCUMENTATION & GUIDE -->
+      <div id="tab-docs" class="ribbon-panel hidden flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-mono uppercase text-muted mr-1">Jump to Section:</span>
+          <a href="#doc-overview" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Overview</a>
+          <a href="#doc-memory" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Session Memory &amp; <code class="font-mono">%n</code></a>
+          <a href="#doc-operations" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Operations Reference</a>
+          <a href="#doc-linalg" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Matrices &amp; Vectors</a>
+          <a href="#doc-ode" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">ODE Solver</a>
+          <a href="#doc-shortcuts" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Shortcuts &amp; LaTeX</a>
+        </div>
+        <button id="btnBackToNotebook" class="px-3 py-1 rounded bg-cobalt text-white hover:bg-blue-800 font-semibold transition flex items-center gap-1.5">
+          <span>&larr; Return to Notebook Canvas</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- COLLAPSIBLE VIRTUAL MATH KEYPADS & PALETTES -->
+    <div id="mathPaletteDrawer" class="px-4 py-2 bg-subtle/60 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs transition-all">
+      <!-- Templates -->
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] font-mono uppercase text-muted mr-1 select-none">Templates:</span>
+        <button data-latex="\frac{#@}{#?}" title="Fraction" class="palette-btn">&frac12;</button>
+        <button data-latex="#@^{#?}" title="Power / Superscript" class="palette-btn">x<sup>n</sup></button>
+        <button data-latex="#@_{#?}" title="Subscript" class="palette-btn">x<sub>i</sub></button>
+        <button data-latex="\sqrt{#0}" title="Square Root" class="palette-btn">&radic;x</button>
+        <button data-latex="\sqrt[#?]{#0}" title="n-th Root" class="palette-btn"><sup>n</sup>&radic;x</button>
+        <button data-latex="\left(#0\right)" title="Parentheses" class="palette-btn">( )</button>
+        <button data-latex="\left[#0\right]" title="Brackets" class="palette-btn">[ ]</button>
+        <button data-latex="\left|#0\right|" title="Absolute Value" class="palette-btn">|x|</button>
+        <button data-latex="=" title="Equals" class="palette-btn">=</button>
+      </div>
+
+      <!-- Calculus & Operators -->
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] font-mono uppercase text-muted mr-1 select-none">Calculus:</span>
+        <button data-latex="\int #0 \, dx" title="Indefinite Integral" class="palette-btn">&int;</button>
+        <button data-latex="\int_{#?}^{#?} #0 \, dx" title="Definite Integral" class="palette-btn">&int;<sub>a</sub><sup>b</sup></button>
+        <button data-latex="\frac{d}{dx}\left(#0\right)" title="Derivative d/dx" class="palette-btn">d/dx</button>
+        <button data-latex="\frac{\partial}{\partial x}\left(#0\right)" title="Partial Derivative" class="palette-btn">&part;/&part;x</button>
+        <button data-latex="\lim_{x \to #?} \left(#0\right)" title="Limit" class="palette-btn">lim</button>
+        <button data-latex="\sum_{n=#?}^{#?} #0" title="Summation" class="palette-btn">&Sigma;</button>
+        <button data-latex="\prod_{n=#?}^{#?} #0" title="Product" class="palette-btn">&Pi;</button>
+        <button data-latex="\infty" title="Infinity" class="palette-btn">&infin;</button>
+        <button data-latex="\nabla" title="Nabla / Del" class="palette-btn">&nabla;</button>
+      </div>
+
+      <!-- Physics & Greek Symbols -->
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] font-mono uppercase text-muted mr-1 select-none">Physics/Greek:</span>
+        <button data-latex="\alpha" class="palette-btn font-serif italic">&alpha;</button>
+        <button data-latex="\beta" class="palette-btn font-serif italic">&beta;</button>
+        <button data-latex="\gamma" class="palette-btn font-serif italic">&gamma;</button>
+        <button data-latex="\delta" class="palette-btn font-serif italic">&delta;</button>
+        <button data-latex="\epsilon" class="palette-btn font-serif italic">&epsilon;</button>
+        <button data-latex="\varepsilon_0" class="palette-btn font-serif italic">&epsilon;<sub>0</sub></button>
+        <button data-latex="\theta" class="palette-btn font-serif italic">&theta;</button>
+        <button data-latex="\lambda" class="palette-btn font-serif italic">&lambda;</button>
+        <button data-latex="\mu" class="palette-btn font-serif italic">&mu;</button>
+        <button data-latex="\pi" class="palette-btn font-serif italic">&pi;</button>
+        <button data-latex="\rho" class="palette-btn font-serif italic">&rho;</button>
+        <button data-latex="\sigma" class="palette-btn font-serif italic">&sigma;</button>
+        <button data-latex="\tau" class="palette-btn font-serif italic">&tau;</button>
+        <button data-latex="\phi" class="palette-btn font-serif italic">&phi;</button>
+        <button data-latex="\psi" class="palette-btn font-serif italic">&psi;</button>
+        <button data-latex="\omega" class="palette-btn font-serif italic">&omega;</button>
+        <button data-latex="\hbar" class="palette-btn font-serif italic">&hbar;</button>
+        <button data-latex="\Delta" class="palette-btn font-serif">&Delta;</button>
+      </div>
+
+      <!-- Functions -->
+      <div class="flex items-center gap-1">
+        <span class="text-[10px] font-mono uppercase text-muted mr-1 select-none">Functions:</span>
+        <button data-latex="\sin\left(#0\right)" class="palette-btn">sin</button>
+        <button data-latex="\cos\left(#0\right)" class="palette-btn">cos</button>
+        <button data-latex="\tan\left(#0\right)" class="palette-btn">tan</button>
+        <button data-latex="\exp\left(#0\right)" class="palette-btn">exp</button>
+        <button data-latex="\ln\left(#0\right)" class="palette-btn">ln</button>
+        <button data-latex="\log_{10}\left(#0\right)" class="palette-btn">log<sub>10</sub></button>
+        <button data-latex="\sinh\left(#0\right)" class="palette-btn">sinh</button>
+        <button data-latex="\cosh\left(#0\right)" class="palette-btn">cosh</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN WORKSPACE: NOTEBOOK STREAM + COLLAPSIBLE VARIABLE INSPECTOR SIDEBAR -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- CENTER NOTEBOOK CANVAS -->
+    <main id="notebookScrollContainer" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 scroll-smooth">
+      <div class="max-w-4xl mx-auto">
+
+        <!-- MULTI-NOTEBOOK TABS BAR (several notebooks open at once, each with its own kernel memory) -->
+        <div id="notebookTabsBar" class="sticky -top-6 z-20 -mx-1 mb-4 px-1 pt-2 pb-2 bg-paper/95 backdrop-blur-sm border-b border-borderWarm flex items-end gap-1 overflow-x-auto print-hidden">
+          <div id="notebookTabsList" class="flex items-end gap-1"></div>
+          <button id="btnNewNotebookTab" title="Open a new empty notebook tab" class="shrink-0 ml-1 px-2.5 py-1 rounded-md text-xs font-semibold text-muted hover:text-white hover:bg-cobalt border border-dashed border-borderWarm hover:border-cobalt transition">
+            + New Tab
+          </button>
+        </div>
+
+        <!-- Printable Header (Only visible when printing / exporting PDF) -->
+        <div class="hidden print-only mb-6 pb-4 border-b-2 border-ink">
+          <h1 class="font-serif text-2xl font-bold">SymPyStudio Computational Notebook</h1>
+          <p class="text-xs font-mono text-muted" id="printTimestamp"></p>
+        </div>
+
+        <!-- Quick Reference Banner -->
+        <div id="welcomeBanner" class="mb-5 bg-surface border border-borderWarm rounded-lg px-4 py-3 flex items-center justify-between text-xs text-muted shadow-2xs print-hidden">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span><strong class="text-ink">Tip:</strong> Press <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-[10px] text-ink">Shift + Enter</kbd> to evaluate cell.</span>
+            <span>Reference previous outputs with <code class="font-mono text-cobalt bg-blue-50 px-1 rounded">%</code> (last) or <code class="font-mono text-cobalt bg-blue-50 px-1 rounded">%1</code>, <code class="font-mono text-cobalt bg-blue-50 px-1 rounded">%2</code>.</span>
+            <span>Assign variables with <code class="font-mono text-terracotta bg-orange-50 px-1 rounded">k = 4.5</code> or <code class="font-mono text-terracotta bg-orange-50 px-1 rounded">f(x) = x^2</code> or the <em>Assign to</em> field.</span>
+          </div>
+          <button id="btnDismissBanner" class="text-muted hover:text-ink ml-2 p-1" title="Dismiss tip">&times;</button>
+        </div>
+
+        <!-- SEQUENTIAL CELLS CONTAINER -->
+        <div id="notebookCells" class="space-y-4"></div>
+
+        <!-- Bottom Add Cell Buttons -->
+        <div id="bottomAddCellWrap" class="mt-6 mb-16 flex flex-wrap items-center justify-center gap-3 print-hidden">
+          <button id="btnAddCellBottom" class="group flex items-center gap-2 px-4 py-2 rounded-full bg-surface hover:bg-cobalt text-ink hover:text-white border border-borderWarm hover:border-cobalt shadow-xs transition text-xs font-semibold">
+            <svg class="w-4 h-4 text-cobalt group-hover:text-white transition" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <span>+ Add Visual Math Cell</span>
+          </button>
+          <button id="btnAddCodeCellBottom" class="group flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 hover:bg-cobalt text-zinc-100 hover:text-white border border-zinc-800 hover:border-cobalt shadow-xs transition text-xs font-mono font-semibold">
+            <svg class="w-4 h-4 text-emerald-400 group-hover:text-white transition" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>+ Add Direct SymPy Code Cell</span>
+          </button>
+        </div>
+
+        <!-- DOCUMENTATION & USER GUIDE VIEW (TAB 6) -->
+        <div id="documentationView" class="hidden space-y-8 pb-20 text-sm leading-relaxed text-ink">
+          <!-- Hero Banner -->
+          <div id="doc-overview" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs">
+            <div class="flex flex-wrap items-start justify-between gap-4 border-b border-borderWarm pb-4 mb-4">
+              <div>
+                <span class="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-cobalt border border-blue-200 font-semibold">Official Reference Manual</span>
+                <h2 class="font-serif font-bold text-2xl sm:text-3xl text-ink mt-2">SymPyStudio Documentation &amp; User Guide</h2>
+                <p class="text-xs sm:text-sm text-muted mt-1">Browser-Native Visual Computer Algebra System (CAS) for Undergraduate Physics &amp; Engineering</p>
+              </div>
+              <button id="btnDocReturnTop" class="px-3.5 py-2 rounded-lg bg-cobalt text-white hover:bg-blue-800 text-xs font-semibold shadow-2xs transition">
+                &larr; Back to Live Notebook
+              </button>
+            </div>
+
+            <p class="text-muted text-xs sm:text-sm mb-4">
+              <strong>SymPyStudio</strong> combines a typographic mathematical equation editor (<a href="https://cortexjs.io/mathlive/" target="_blank" class="text-cobalt underline">MathLive</a>) with a full symbolic computation engine (<a href="https://www.sympy.org/" target="_blank" class="text-cobalt underline">SymPy</a> running in WebAssembly via <a href="https://pyodide.org/" target="_blank" class="text-cobalt underline">Pyodide</a>). You never need to write Python syntax—formulas are entered visually and evaluated symbolically in your browser with persistent memory.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div class="p-3.5 rounded-lg bg-paper border border-borderWarm">
+                <div class="font-mono font-bold text-cobalt uppercase text-[11px] mb-1">1. Zero-Code Visual Input</div>
+                <p class="text-muted">Enter fractions, integrals, roots, limits, derivatives, and matrices directly via the top symbol palettes or natural keyboard shortcuts.</p>
+              </div>
+              <div class="p-3.5 rounded-lg bg-paper border border-borderWarm">
+                <div class="font-mono font-bold text-terracotta uppercase text-[11px] mb-1">2. Persistent CAS Memory</div>
+                <p class="text-muted">Define constants, variables, or functions in one cell and reference them across your entire notebook—or recall prior outputs with <code class="font-mono">%</code> and <code class="font-mono">%n</code>.</p>
+              </div>
+              <div class="p-3.5 rounded-lg bg-paper border border-borderWarm">
+                <div class="font-mono font-bold text-emerald uppercase text-[11px] mb-1">3. Learn SymPy Effortlessly</div>
+                <p class="text-muted">Every evaluated cell includes a collapsible <em>"Show Equivalent SymPy Code"</em> drawer that reveals the exact Python/SymPy statement behind the result.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Persistent Session Memory & % Output Referencing -->
+          <section id="doc-memory" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">1. Persistent Session Memory &amp; <code class="font-mono text-terracotta">%n</code> Referencing</h3>
+            <p class="text-xs sm:text-sm text-muted">
+              Just like Maple and Wolfram Mathematica, SymPyStudio maintains a continuous Python/SymPy runtime across all cells. Every evaluation increments the execution index (<code class="font-mono text-cobalt">In [1]</code>, <code class="font-mono text-terracotta">Out [1]</code>, etc.).
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">Assigning Variables &amp; Functions</h4>
+                <ul class="list-disc list-inside space-y-1.5 text-muted">
+                  <li><strong>Inline Variable Assignment:</strong> Type <code class="font-mono text-ink bg-surface px-1.5 py-0.5 rounded border">k = 4.5</code> or <code class="font-mono text-ink bg-surface px-1.5 py-0.5 rounded border">\omega_0 = \sqrt{\frac{k}{m}}</code> in <em>Standard Evaluate</em> mode.</li>
+                  <li><strong>Inline Function Definition:</strong> Type <code class="font-mono text-ink bg-surface px-1.5 py-0.5 rounded border">f(x) = x^2 \sin(x)</code> or multi-variable <code class="font-mono text-ink bg-surface px-1.5 py-0.5 rounded border">V(x,y) = x^2 - y^2</code>. You can then evaluate <code class="font-mono text-ink">f(\pi/2)</code> or differentiate <code class="font-mono text-ink">f(x)</code> in any later cell.</li>
+                  <li><strong>"Assign to" Box:</strong> Use the <code class="font-mono text-ink">Assign to:</code> input field on the right side of any cell's control bar (e.g., <code class="font-mono text-terracotta">Sol1</code>) to store the output of an integral, derivative, or matrix operation into a variable.</li>
+                </ul>
+              </div>
+
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">Referencing Previous Outputs (<code class="font-mono text-terracotta">%</code> System)</h4>
+                <ul class="list-disc list-inside space-y-1.5 text-muted">
+                  <li><code class="font-mono text-terracotta font-semibold">%</code> — References the <strong>most recently evaluated output</strong>.</li>
+                  <li><code class="font-mono text-terracotta font-semibold">%1</code>, <code class="font-mono text-terracotta font-semibold">%2</code>, <code class="font-mono text-terracotta font-semibold">%n</code> — References the exact output of <code class="font-mono">Out [n]</code>, e.g., <code class="font-mono text-ink bg-surface px-1.5 py-0.5 rounded border">%1 + 2 \cdot %2</code>.</li>
+                  <li><strong>Session Memory Inspector Sidebar:</strong> Click any variable or <code class="font-mono">%n</code> item in the right-hand sidebar to insert it directly at your cursor position in the active cell.</li>
+                  <li><strong>Pre-Registered Symbols:</strong> <code class="font-serif italic">x, y, z, t, r, &theta;, &phi;</code> and physics constants (<code class="font-serif italic">&alpha;, &beta;, &gamma;, &delta;, &epsilon;, &epsilon;<sub>0</sub>, &zeta;, &lambda;, &mu;, &pi;, &rho;, &sigma;, &tau;, &psi;, &omega;, &hbar;, &Delta;, &infin;</code>) are ready out-of-the-box.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 3: Categorized Operations Reference -->
+          <section id="doc-operations" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">2. Categorized Operations Ribbon Reference</h3>
+            <p class="text-xs sm:text-sm text-muted">
+              Clicking any operation in Tabs 1–5 configures the currently active notebook cell (<code class="font-mono text-cobalt">Target: In[n]</code>) and displays specialized parameter fields below the math editor.
+            </p>
+
+            <div class="overflow-x-auto border border-borderWarm rounded-lg">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-subtle text-ink border-b border-borderWarm font-mono text-[11px] uppercase">
+                    <th class="py-2.5 px-3">Ribbon Tab</th>
+                    <th class="py-2.5 px-3">Operation</th>
+                    <th class="py-2.5 px-3">Parameters &amp; Usage</th>
+                    <th class="py-2.5 px-3">Underlying SymPy Function</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-borderWarm">
+                  <tr>
+                    <td class="py-2 px-3 font-semibold text-cobalt" rowspan="6">1. Calculus &amp; Analysis</td>
+                    <td class="py-2 px-3 font-medium">Differentiate</td>
+                    <td class="py-2 px-3 text-muted">Specify differentiation variable (<code class="font-mono">x, y, t</code>) and order <code class="font-mono">n</code> (1st, 2nd, $n$-th derivative).</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.diff(expr, var, order)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Indefinite Integral</td>
+                    <td class="py-2 px-3 text-muted">Computessymbolic antiderivative $\int f(x)\,dx$ with respect to the chosen variable.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.integrate(expr, var)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Definite Integral</td>
+                    <td class="py-2 px-3 text-muted">Computes $\int_a^b f(x)\,dx$. Supports symbolic bounds like <code class="font-mono">0</code>, <code class="font-mono">pi</code>, <code class="font-mono">oo</code> ($\infty$), or <code class="font-mono">-oo</code>.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.integrate(expr, (var, a, b))</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Limit</td>
+                    <td class="py-2 px-3 text-muted">Evaluates $\lim_{x \to a} f(x)$ with direction flags: Two-sided (<code class="font-mono">+-</code>), Right (<code class="font-mono">+</code>), or Left (<code class="font-mono">-</code>).</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.limit(expr, var, a, dir)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Taylor / Series</td>
+                    <td class="py-2 px-3 text-muted">Power series expansion around point $x_0$ up to order $O(x^n)$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.series(expr, var, x0, n)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Symbolic Summation</td>
+                    <td class="py-2 px-3 text-muted">Closed-form summation $\sum_{n=a}^{b} f(n)$ (e.g., Riemann zeta or geometric series to <code class="font-mono">oo</code>).</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.summation(expr, (n, a, b))</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-semibold text-cobalt" rowspan="3">2. Algebra &amp; Solvers</td>
+                    <td class="py-2 px-3 font-medium">Solve for Variable</td>
+                    <td class="py-2 px-3 text-muted">Finds analytical roots of $f(x) = g(x)$ (or $f(x) = 0$ if no <code class="font-mono">=</code> is written) for target unknown.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.solve(Eq(lhs, rhs), var)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Simultaneous Solver</td>
+                    <td class="py-2 px-3 text-muted">Enter 1st equation in the main editor, 2nd &amp; 3rd equations in the parameter boxes, and comma-separated unknowns (e.g., <code class="font-mono">x, y</code>).</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.solve([eq1, eq2, ...], vars)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Simplify / Expand / Factor / Apart / TrigSimp</td>
+                    <td class="py-2 px-3 text-muted">Algebraic rewrites, polynomial factoring, partial fraction decomposition (<code class="font-mono">apart</code>), and trigonometric reduction.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">sp.simplify / expand / factor / apart / trigsimp</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Section 4: Linear Algebra, Matrices & Vector Calculus -->
+          <section id="doc-linalg" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">3. Linear Algebra, Matrices &amp; Vector Calculus (Tab 3)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">Constructing &amp; Operating on Matrices</h4>
+                <p class="text-muted">
+                  Use the <strong>2&times;2 Grid</strong>, <strong>3&times;3 Grid</strong>, <strong>4&times;4 Grid</strong> buttons or open the interactive <strong>Visual Matrix Builder</strong> modal to populate rows and columns with numbers or symbolic variables.
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-muted">
+                  <li><strong>Operations:</strong> <code class="font-mono">det(A)</code>, <code class="font-mono">Inverse A⁻¹</code>, <code class="font-mono">Transpose Aᵀ</code>, <code class="font-mono">Trace</code>, <code class="font-mono">Characteristic Polynomial p(&lambda;)</code>, and symbolic <code class="font-mono">Eigenvalues &amp; Eigenvectors</code>.</li>
+                  <li><strong>Tip:</strong> Assign a matrix to a symbol like <code class="font-mono text-terracotta">M</code> using the <em>Assign to</em> field, then compute <code class="font-mono">M</code>'s inverse or eigenvalues in the next cell!</li>
+                </ul>
+              </div>
+
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">Cartesian Vector Calculus (<code class="font-serif">&nabla;</code> Operators)</h4>
+                <ul class="list-disc list-inside space-y-1.5 text-muted">
+                  <li><strong>Gradient (<code class="font-serif">&nabla;&phi;</code>) &amp; Laplacian (<code class="font-serif">&nabla;&sup2;&phi;</code>):</strong> Enter any scalar field (e.g., <code class="font-mono text-ink">x^2 y + \sin(z)</code>) and select <em>Grad</em> or <em>Laplacian</em>.</li>
+                  <li><strong>Divergence (<code class="font-serif">&nabla;&middot;F</code>) &amp; Curl (<code class="font-serif">&nabla;&times;F</code>):</strong> Enter a 3-component vector either as a bracketed list <code class="font-mono text-ink">[x^2, y z, -z^2]</code> or a $3\times 1$ matrix, then click <em>Div</em> or <em>Curl</em>.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 5: Differential Equations (ODE) & Plotting -->
+          <section id="doc-ode" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">4. Differential Equations (ODE) &amp; Interactive Plotting (Tabs 4 &amp; 5)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">1st &amp; 2nd Order ODE Solver (<code class="font-mono">sp.dsolve</code>)</h4>
+                <p class="text-muted">
+                  Write differential equations using prime notation <code class="font-mono text-ink">y''(x) + 2 y'(x) + 10 y(x) = 0</code> (or click one of the built-in Physics/RLC ODE templates in Tab 4).
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-muted">
+                  <li><strong>Initial / Boundary Conditions:</strong> Fill in <code class="font-mono">IC 1</code> (e.g., <code class="font-mono text-ink">y(0)=1</code>) and <code class="font-mono">IC 2</code> (e.g., <code class="font-mono text-ink">y'(0)=0</code>) to automatically solve for integration constants $C_1, C_2$.</li>
+                </ul>
+              </div>
+
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
+                <h4 class="font-bold text-ink">2D Curves &amp; 3D Surfaces (<code class="font-mono">sp.lambdify</code> + Plotly)</h4>
+                <p class="text-muted">
+                  Symbolic expressions are compiled into fast numerical functions via <code class="font-mono">sp.lambdify</code> and rendered interactively with zoom, pan, and 3D orbital rotation.
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-muted">
+                  <li>Click <strong>"Plot Result"</strong> on any cell output (including solved ODEs!) to automatically create a plot cell referencing that output.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 6: Keyboard Shortcuts & Persistence -->
+          <section id="doc-shortcuts" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">5. Keyboard Shortcuts, Saving &amp; Exporting</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div class="space-y-2">
+                <h4 class="font-bold text-ink">Editor &amp; Cell Navigation Shortcuts</h4>
+                <div class="space-y-1.5 text-muted">
+                  <div class="flex justify-between py-1 border-b border-borderWarm/60">
+                    <span>Evaluate Active Cell</span>
+                    <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">Shift + Enter</kbd>
+                  </div>
+                  <div class="flex justify-between py-1 border-b border-borderWarm/60">
+                    <span>Navigate to Previous / Next Cell</span>
+                    <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">Alt + &uarr; / &darr;</kbd>
+                  </div>
+                  <div class="flex justify-between py-1 border-b border-borderWarm/60">
+                    <span>Fraction / Exponent / Subscript in Editor</span>
+                    <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">/</kbd> , <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">^</kbd> , <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">_</kbd>
+                  </div>
+                  <div class="flex justify-between py-1">
+                    <span>Type LaTeX Command Directly</span>
+                    <kbd class="px-1.5 py-0.5 bg-subtle border border-borderWarm rounded font-mono text-ink">\sin, \pi, \int, \sqrt</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <h4 class="font-bold text-ink">Persistence &amp; Academic Sharing</h4>
+                <ul class="list-disc list-inside space-y-1.5 text-muted">
+                  <li><strong>Auto-Save:</strong> Every edit and cell evaluation is automatically saved to your browser's <code class="font-mono">localStorage</code>.</li>
+                  <li><strong>Save / Load (.json):</strong> Download your entire notebook state as a portable <code class="font-mono">.json</code> file and reload it anytime, automatically re-evaluating all cells.</li>
+                  <li><strong>Export PDF / Clean HTML:</strong> Formats the notebook into a crisp academic print sheet with all UI toolbars hidden.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: ACTIVE VARIABLE INSPECTOR & MEMORY -->
+    <aside id="inspectorSidebar" class="w-80 bg-surface border-l border-borderWarm flex flex-col shrink-0 transition-all duration-200 print-hidden">
+      <div class="p-3.5 border-b border-borderWarm flex items-center justify-between bg-subtle/40">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cobalt"></span>
+            <span>Session Memory Inspector</span>
+          </h2>
+          <p class="text-[11px] text-muted mt-0.5">Live symbols, functions &amp; <code class="font-mono">Out[n]</code></p>
+        </div>
+        <button id="btnClearMemory" title="Reset Pyodide Variable Environment" class="px-2 py-1 rounded text-[11px] font-medium bg-red-50 text-red-700 hover:bg-red-600 hover:text-white border border-red-200 transition">
+          Clear Memory
+        </button>
+      </div>
+
+      <!-- Assigned Variables, Assumptions Manager & Functions Section -->
+      <div class="flex-1 overflow-y-auto divide-y divide-borderWarm">
+        <!-- Symbolic Assumptions Manager -->
+        <div class="p-3.5 bg-subtle/25">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] font-mono uppercase tracking-wider text-ink font-semibold flex items-center gap-1">
+              <span>Symbolic Assumptions Manager</span>
+            </h3>
+            <span class="text-[10px] font-mono px-1.5 py-0.2 bg-blue-50 text-cobalt border border-blue-200 rounded">sp.symbols</span>
+          </div>
+          <p class="text-[11px] text-muted mb-2">Prevent complex piecewise roots by declaring symbol domains:</p>
+          <div class="space-y-2 text-xs">
+            <input id="assumptionsSymbolsInput" type="text" placeholder="e.g. a, b, h, E, nu" class="w-full px-2 py-1 rounded bg-surface border border-borderWarm font-mono text-xs text-ink focus:outline-none focus:border-cobalt" />
+            <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono text-ink">
+              <label class="flex items-center gap-1.5 cursor-pointer select-none bg-surface px-2 py-1 rounded border border-borderWarm">
+                <input id="assumePositive" type="checkbox" checked class="accent-cobalt rounded" />
+                <span>positive=True</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer select-none bg-surface px-2 py-1 rounded border border-borderWarm">
+                <input id="assumeReal" type="checkbox" checked class="accent-cobalt rounded" />
+                <span>real=True</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer select-none bg-surface px-2 py-1 rounded border border-borderWarm">
+                <input id="assumeInteger" type="checkbox" class="accent-cobalt rounded" />
+                <span>integer=True</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer select-none bg-surface px-2 py-1 rounded border border-borderWarm">
+                <input id="assumeNonzero" type="checkbox" class="accent-cobalt rounded" />
+                <span>nonzero=True</span>
+              </label>
+            </div>
+            <button id="btnApplyAssumptions" class="w-full py-1.5 rounded bg-cobalt hover:bg-blue-800 text-white font-semibold text-xs transition shadow-2xs">
+              Apply Domain Assumptions
+            </button>
+            <div id="assumptionsActiveList" class="flex flex-wrap gap-1 pt-1"></div>
+          </div>
+        </div>
+
+        <div class="p-3.5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] font-mono uppercase tracking-wider text-muted font-semibold">Assigned Symbols &amp; Functions</h3>
+            <span id="varCountBadge" class="text-[10px] font-mono px-1.5 py-0.2 bg-subtle rounded text-muted">0</span>
+          </div>
+          <div id="inspectorVarsList" class="space-y-2 text-xs">
+            <p class="text-muted italic text-xs py-2">No custom symbols or functions assigned yet.</p>
+          </div>
+        </div>
+
+        <!-- Output History (%n) Reference Table -->
+        <div class="p-3.5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] font-mono uppercase tracking-wider text-muted font-semibold">Output History (<code class="text-terracotta">%n</code>)</h3>
+            <span id="outCountBadge" class="text-[10px] font-mono px-1.5 py-0.2 bg-subtle rounded text-muted">0</span>
+          </div>
+          <div id="inspectorOutList" class="space-y-2 text-xs">
+            <p class="text-muted italic text-xs py-2">Evaluate a cell to populate <code class="font-mono">%1, %2</code> history.</p>
+          </div>
+        </div>
+
+        <!-- Built-in Coordinate Symbols Info -->
+        <div class="p-3.5 bg-subtle/30">
+          <h3 class="text-[11px] font-mono uppercase tracking-wider text-muted font-semibold mb-1.5">Pre-Registered Coordinates</h3>
+          <div class="flex flex-wrap gap-1.5 font-serif italic text-xs text-ink">
+            <span class="px-2 py-0.5 bg-surface border border-borderWarm rounded">x, y, z, t</span>
+            <span class="px-2 py-0.5 bg-surface border border-borderWarm rounded">r, &theta;, &phi;</span>
+            <span class="px-2 py-0.5 bg-surface border border-borderWarm rounded">&pi;, e, &infin;, i</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- VISUAL MATRIX BUILDER MODAL -->
+  <div id="matrixModal" class="fixed inset-0 bg-ink/40 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-surface border border-borderWarm rounded-xl shadow-xl max-w-md w-full overflow-hidden">
+      <div class="px-4 py-3 bg-subtle border-b border-borderWarm flex items-center justify-between">
+        <h3 class="font-serif font-bold text-base text-ink">Visual Matrix Builder</h3>
+        <button id="btnCloseMatrixModal" class="text-muted hover:text-ink text-lg leading-none">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="flex items-center justify-between gap-4 text-xs">
+          <label class="flex items-center gap-2 font-medium">
+            <span>Rows:</span>
+            <select id="matrixRowsSelect" class="bg-subtle border border-borderWarm rounded px-2 py-1 font-mono">
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <label class="flex items-center gap-2 font-medium">
+            <span>Columns:</span>
+            <select id="matrixColsSelect" class="bg-subtle border border-borderWarm rounded px-2 py-1 font-mono">
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+          <button id="btnFillIdentity" class="px-2 py-1 rounded bg-subtle hover:bg-zinc-200 text-ink font-medium border border-borderWarm">
+            Identity Matrix
+          </button>
+        </div>
+
+        <!-- Matrix Grid Inputs -->
+        <div id="matrixGridContainer" class="p-3 bg-paper border border-borderWarm rounded-lg grid gap-2 justify-center"></div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-borderWarm">
+          <button id="btnCancelMatrix" class="px-3 py-1.5 rounded text-xs font-medium text-muted hover:bg-subtle">Cancel</button>
+          <button id="btnInsertMatrixGrid" class="px-3.5 py-1.5 rounded text-xs font-semibold bg-cobalt text-white hover:bg-blue-800">Insert into Active Cell</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>
