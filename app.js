@@ -457,7 +457,7 @@ const PRESET_NOTEBOOKS = {
       id: 'cell_sc_1',
       mode: 'visual',
       title: '1. Airy Stress Function for Tip-Loaded Cantilever Beam: Phi(x,y)',
-      latex: r'-\frac{P}{2 I} x y^2 + \frac{P}{6 I} y^3',
+      latex: String.raw`-\frac{P}{2 I} x y^2 + \frac{P}{6 I} y^3`,
       operation: 'mech_airy',
       params: { coords: 'x, y' },
       assignTo: 'sigma_beam'
@@ -484,7 +484,7 @@ print("Integrated Cross-Section Shear Force V(x):", sp.simplify(V_res.subs(I_val
       id: 'cell_sc_3',
       mode: 'visual',
       title: "3. Interactive Mohr's Circle at Clamped Root Surface (x=0, y=h/2)",
-      latex: r'[-120, 0, 45]',
+      latex: String.raw`[-120, 0, 45]`,
       operation: 'mech_mohr',
       params: {}
     }
@@ -525,7 +525,7 @@ sp.pprint(sig_th)`
       id: 'cell_sp_3',
       mode: 'visual',
       title: '3. Stress Invariants and von Mises Equivalent Yield Stress at Inner Bore (r = a)',
-      latex: r'\begin{bmatrix} -80 & 0 & 0 \\ 0 & 140 & 0 \\ 0 & 0 & 0 \end{bmatrix}',
+      latex: String.raw`\begin{bmatrix} -80 & 0 & 0 \\ 0 & 140 & 0 \\ 0 & 0 & 0 \end{bmatrix}`,
       operation: 'mech_invariants',
       params: {},
       assignTo: 'bore_yield'
@@ -540,7 +540,7 @@ sp.pprint(sig_th)`
       id: 'cell_sy_1',
       mode: 'visual',
       title: '1. Triaxial General Stress Tensor: Invariants, Deviatoric S, and von Mises',
-      latex: r'\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}',
+      latex: String.raw`\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}`,
       operation: 'mech_invariants',
       params: {},
       assignTo: 'triaxial_stress'
@@ -549,7 +549,7 @@ sp.pprint(sig_th)`
       id: 'cell_sy_2',
       mode: 'visual',
       title: '2. Characteristic Polynomial p(sigma) for Principal Stresses',
-      latex: r'\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}',
+      latex: String.raw`\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}`,
       operation: 'mat_charpoly',
       params: { var: 'sigma' }
     },
@@ -584,7 +584,7 @@ print(f"von Mises Equivalent Stress: sigma_vm = {sig_von_mises:.2f} MPa")`
       id: 'cell_ed_1',
       mode: 'visual',
       title: '1. Electric Dipole Potential V(r, theta) in Spherical Coordinates',
-      latex: r'\frac{p \cos(\theta)}{4 \pi \varepsilon_0 r^2}',
+      latex: String.raw`\frac{p \cos(\theta)}{4 \pi \varepsilon_0 r^2}`,
       operation: 'curv_grad',
       params: { system: 'spherical', coords: 'r, theta, phi' },
       assignTo: 'grad_V_sph'
@@ -608,7 +608,7 @@ sp.pprint(sp.simplify(div_E))`
       id: 'cell_ed_3',
       mode: 'visual',
       title: '3. 2D Electric Dipole Vector Field Quiver Plot in Cartesian Plane',
-      latex: r'\left[ \frac{3 x y}{(x^2 + y^2 + 0.1)^{5/2}}, \frac{2 y^2 - x^2}{(x^2 + y^2 + 0.1)^{5/2}} \right]',
+      latex: String.raw`\left[ \frac{3 x y}{(x^2 + y^2 + 0.1)^{5/2}}, \frac{2 y^2 - x^2}{(x^2 + y^2 + 0.1)^{5/2}} \right]`,
       operation: 'em_field_plot',
       params: { xmin: '-3', xmax: '3', ymin: '-3', ymax: '3', grid: 16 }
     }
@@ -622,7 +622,7 @@ sp.pprint(sp.simplify(div_E))`
       id: 'cell_ew_1',
       mode: 'visual',
       title: '1. Verification of all 4 Maxwell Equations for Propagating TEM Plane Wave',
-      latex: r'\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]',
+      latex: String.raw`\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]`,
       operation: 'em_maxwell_check',
       params: { coords: 'x, y, z', time: 't', rho: '0', J: '[0, 0, 0]' }
     },
@@ -630,7 +630,7 @@ sp.pprint(sp.simplify(div_E))`
       id: 'cell_ew_2',
       mode: 'visual',
       title: '2. Vector Potential A and Lorenz Gauge Condition Check',
-      latex: r'\left[ -\frac{E_0}{\omega} \sin(k z - \omega t), 0, 0 \right]',
+      latex: String.raw`\left[ -\frac{E_0}{\omega} \sin(k z - \omega t), 0, 0 \right]`,
       operation: 'em_gauge',
       params: { V: '0', coords: 'x, y, z', time: 't', c: 'c' }
     },
@@ -638,7 +638,7 @@ sp.pprint(sp.simplify(div_E))`
       id: 'cell_ew_3',
       mode: 'visual',
       title: '3. Poynting Energy Flux Vector S and Electromagnetic Energy Density u',
-      latex: r'\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]',
+      latex: String.raw`\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]`,
       operation: 'em_poynting',
       params: {},
       assignTo: 'S_wave'
@@ -671,7 +671,7 @@ sp.pprint(beta_prop)`
       id: 'cell_wg_2',
       mode: 'visual',
       title: '2. Maxwell Stress Tensor T_ij on Waveguide Boundary Wall',
-      latex: r'\left[ [0, E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0], [-\frac{\beta}{\omega} E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0, \frac{\pi}{\omega a} E_0 \cos(\frac{\pi x}{a}) \sin(\omega t - \beta z)] \right]',
+      latex: String.raw`\left[ [0, E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0], [-\frac{\beta}{\omega} E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0, \frac{\pi}{\omega a} E_0 \cos(\frac{\pi x}{a}) \sin(\omega t - \beta z)] \right]`,
       operation: 'em_stress_tensor',
       params: { coords: 'x, y, z' }
     },
@@ -679,7 +679,7 @@ sp.pprint(beta_prop)`
       id: 'cell_wg_3',
       mode: 'visual',
       title: '3. Waveguide Electric Field Streamlines & Quiver in Cross-Section',
-      latex: r'\left[ 0, \sin(\frac{\pi x}{2}) \cos(z) \right]',
+      latex: String.raw`\left[ 0, \sin(\frac{\pi x}{2}) \cos(z) \right]`,
       operation: 'em_field_plot',
       params: { xmin: '0', xmax: '2', ymin: '-3', ymax: '3', grid: 15 }
     }
@@ -4750,6 +4750,7 @@ function buildCellDOM(cell, idx) {
   rawTextarea.value = cell.code || '';
   if (isCodeMode) {
     initCodeEditorForCell(cell, rawTextarea);
+    scheduleCodePreview(cell, 50);
   } else {
     rawTextarea.addEventListener('input', () => {
       cell.code = rawTextarea.value;
@@ -6084,7 +6085,7 @@ async function activateKernelSessionForTab(tab, autoEval = false) {
   }
 }
 
-async function switchTab(tabId) {
+async function switchTab(tabId, autoEval = false) {
   if (tabId === AppState.activeTabId) return;
   const target = AppState.tabs.find(t => t.id === tabId);
   if (!target) return;
@@ -6095,10 +6096,10 @@ async function switchTab(tabId) {
   renderAllCells();
   renderAssumptionsBadgesFromState();
   saveNotebookToLocalStorage();
-  await activateKernelSessionForTab(target);
+  await activateKernelSessionForTab(target, autoEval);
 }
 
-async function openNewTab(name, cells, symbolAssumptions = {}) {
+async function openNewTab(name, cells, symbolAssumptions = {}, autoEval = false) {
   const tab = {
     id: makeTabId(),
     name: name || 'Untitled',
@@ -6108,7 +6109,7 @@ async function openNewTab(name, cells, symbolAssumptions = {}) {
     evaluated: false
   };
   AppState.tabs.push(tab);
-  await switchTab(tab.id);
+  await switchTab(tab.id, autoEval);
   return tab;
 }
 
@@ -6251,7 +6252,7 @@ function loadNotebookFromStorageOrDefault() {
   saveNotebookToLocalStorage();
 }
 
-async function loadPresetNotebook(presetKey, autoEval = false, tabName = null) {
+async function loadPresetNotebook(presetKey, autoEval = true, tabName = null) {
   const presetCells = PRESET_NOTEBOOKS[presetKey] || PRESET_NOTEBOOKS.default;
   // Fresh ids so the same template can be open in several tabs at once
   const cells = presetCells.map(c => createCellModel({ ...c, id: undefined }));
@@ -6270,7 +6271,7 @@ async function loadPresetNotebook(presetKey, autoEval = false, tabName = null) {
     saveNotebookToLocalStorage();
     await activateKernelSessionForTab(current, autoEval);
   } else {
-    await openNewTab(name, cells, {});
+    await openNewTab(name, cells, {}, autoEval);
   }
 }
 
