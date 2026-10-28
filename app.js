@@ -2046,6 +2046,166 @@ def drop_session(tab_id):
     if tab_id != _active_tab_id:
         _tab_sessions.pop(tab_id, None)
     return True
+
+def convert_code_to_visual(code_str):
+    code_str = (code_str or '').strip()
+    if not code_str:
+        return json.dumps({'status': 'ok', 'latex': '', 'operation': 'eval', 'params': {}, 'assignTo': ''})
+
+    cleaned_code = _preprocess_user_code(code_str)
+    try:
+        tree = ast.parse(cleaned_code, mode='exec')
+    except Exception as exc:
+        try:
+            expr, _ = parse_math_input(code_str)
+            return json.dumps({'status': 'ok', 'latex': sp.latex(expr), 'operation': 'eval', 'params': {}, 'assignTo': ''})
+        except Exception:
+            return json.dumps({'status': 'error', 'message': f'Syntax error in code: {exc}'})
+
+    ns = dict(get_eval_locals())
+    ns.update({'sp': sp, 'math': math, '_out_ref': _out_ref, '_make_lambda': _make_lambda, '_pe': _pe})
+
+    detected_op = 'eval'
+    detected_params = {}
+    detected_assign_to = ''
+
+    def match_op_call(node):
+        if not isinstance(node, ast.Call):
+            return None, None, {}
+        fn_name = ''
+        if isinstance(node.func, ast.Attribute):
+            fn_name = node.func.attr
+        elif isinstance(node.func, ast.Name):
+            fn_name = node.func.id
+
+        if fn_name == 'expand' and len(node.args) >= 1:
+            return 'expand', node.args[0], {}
+        elif fn_name == 'factor' and len(node.args) >= 1:
+            return 'factor', node.args[0], {}
+        elif fn_name == 'simplify' and len(node.args) >= 1:
+            return 'simplify', node.args[0], {}
+        elif fn_name == 'trigsimp' and len(node.args) >= 1:
+            return 'trigsimp', node.args[0], {}
+        elif fn_name == 'apart' and len(node.args) >= 1:
+            p = {'var': 'x'}
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
+                p['var'] = node.args[1].id
+            return 'apart', node.args[0], p
+        elif fn_name == 'diff' and len(node.args) >= 1:
+            p = {'var': 'x', 'order': 1}
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
+                p['var'] = node.args[1].id
+            if len(node.args) >= 3 and isinstance(node.args[2], ast.Constant) and isinstance(node.args[2].value, int):
+                p['order'] = node.args[2].value
+            return 'diff', node.args[0], p
+        elif fn_name == 'integrate' and len(node.args) >= 1:
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Tuple) and len(node.args[1].elts) == 3:
+                tup = node.args[1].elts
+                v_name = tup[0].id if isinstance(tup[0], ast.Name) else 'x'
+                low_val = eval(compile(ast.Expression(body=tup[1]), '<conv>', 'eval'), ns)
+                upp_val = eval(compile(ast.Expression(body=tup[2]), '<conv>', 'eval'), ns)
+                return 'integrate_def', node.args[0], {'var': v_name, 'lower': sp.latex(low_val), 'upper': sp.latex(upp_val)}
+            else:
+                p = {'var': 'x'}
+                if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
+                    p['var'] = node.args[1].id
+                return 'integrate_indef', node.args[0], p
+        elif fn_name == 'limit' and len(node.args) >= 3:
+            v_name = node.args[1].id if isinstance(node.args[1], ast.Name) else 'x'
+            pt_val = eval(compile(ast.Expression(body=node.args[2]), '<conv>', 'eval'), ns)
+            d = '+-'
+            for kw in node.keywords:
+                if kw.arg == 'dir' and isinstance(kw.value, ast.Constant):
+                    d = str(kw.value.value)
+            return 'limit', node.args[0], {'var': v_name, 'point': sp.latex(pt_val), 'dir': d}
+        elif fn_name == 'series' and len(node.args) >= 1:
+            p = {'var': 'x', 'point': '0', 'order': 6}
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
+                p['var'] = node.args[1].id
+            if len(node.args) >= 3:
+                pt_val = eval(compile(ast.Expression(body=node.args[2]), '<conv>', 'eval'), ns)
+                p['point'] = sp.latex(pt_val)
+            if len(node.args) >= 4 and isinstance(node.args[3], ast.Constant) and isinstance(node.args[3].value, int):
+                p['order'] = node.args[3].value
+            return 'series', node.args[0], p
+        elif fn_name == 'summation' and len(node.args) >= 2:
+            p = {'var': 'n', 'lower': '1', 'upper': 'oo'}
+            if isinstance(node.args[1], ast.Tuple) and len(node.args[1].elts) == 3:
+                tup = node.args[1].elts
+                p['var'] = tup[0].id if isinstance(tup[0], ast.Name) else 'n'
+                low_val = eval(compile(ast.Expression(body=tup[1]), '<conv>', 'eval'), ns)
+                upp_val = eval(compile(ast.Expression(body=tup[2]), '<conv>', 'eval'), ns)
+                p['lower'] = sp.latex(low_val)
+                p['upper'] = sp.latex(upp_val)
+            return 'sum', node.args[0], p
+        elif fn_name == 'solve' and len(node.args) >= 1:
+            p = {'var': 'x'}
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
+                p['var'] = node.args[1].id
+            return 'solve', node.args[0], p
+        return None, None, {}
+
+    last_assign = None
+    last_expr = None
+    for st in tree.body:
+        try:
+            if isinstance(st, (ast.Import, ast.ImportFrom, ast.FunctionDef)):
+                exec(compile(ast.Module(body=[st], type_ignores=[]), '<conv>', 'exec'), ns)
+            elif isinstance(st, ast.Assign):
+                exec(compile(ast.Module(body=[st], type_ignores=[]), '<conv>', 'exec'), ns)
+                targets = [t.id for t in st.targets if isinstance(t, ast.Name)]
+                if targets:
+                    last_assign = st
+            elif isinstance(st, ast.Expr):
+                last_expr = st
+        except Exception:
+            pass
+
+    eval_target_node = None
+    if last_assign is not None:
+        tgt_name = last_assign.targets[0].id if isinstance(last_assign.targets[0], ast.Name) else 'result'
+        rhs_node = last_assign.value
+        op_found, inner_arg_node, op_params = match_op_call(rhs_node)
+        if op_found:
+            detected_op = op_found
+            detected_params = op_params
+            eval_target_node = inner_arg_node
+        else:
+            eval_target_node = rhs_node
+            if tgt_name not in ('result', 'expr'):
+                detected_assign_to = tgt_name
+    elif last_expr is not None:
+        op_found, inner_arg_node, op_params = match_op_call(last_expr.value)
+        if op_found:
+            detected_op = op_found
+            detected_params = op_params
+            eval_target_node = inner_arg_node
+        else:
+            eval_target_node = last_expr.value
+
+    target_latex = ''
+    if eval_target_node is not None:
+        try:
+            val = eval(compile(ast.Expression(body=eval_target_node), '<conv>', 'eval'), ns)
+            target_latex = sp.latex(val)
+        except Exception:
+            try:
+                target_latex = ast.unparse(eval_target_node)
+            except Exception:
+                target_latex = ''
+
+    if detected_assign_to and detected_op == 'eval':
+        target_latex = f"{detected_assign_to} = {target_latex}" if target_latex else detected_assign_to
+        detected_assign_to = ''
+
+    return json.dumps({
+        'status': 'ok',
+        'latex': target_latex,
+        'operation': detected_op,
+        'params': detected_params,
+        'assignTo': detected_assign_to
+    })
+
 def execute_code_cell(code_str, cell_index, assign_to=''):
     if not code_str.strip():
         return json.dumps({
@@ -3192,6 +3352,12 @@ function buildCellDOM(cell, idx) {
           <span class="sm:hidden">&rarr; Code</span>
         </button>
 
+        <!-- Bi-Directional Bridge Button: Convert SymPy Code -> Visual Math -->
+        <button type="button" class="btn-convert-to-visual ${isCodeMode ? 'inline-flex' : 'hidden'} items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-blue-50 text-cobalt hover:bg-cobalt hover:text-white border border-blue-200 transition" title="Convert Python / SymPy Code back to Visual Math Equation">
+          <span class="hidden sm:inline">&larr; Convert to Visual Math</span>
+          <span class="sm:hidden">&larr; Visual</span>
+        </button>
+
         <span class="cell-time-badge hidden sm:inline">${timeBadge}</span>
         <button class="btn-delete-cell text-muted hover:text-red-600 p-1 rounded hover:bg-red-50 transition" title="Delete Cell">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -3311,9 +3477,9 @@ function buildCellDOM(cell, idx) {
   }
 
   // Mode Toggle Listeners (Visual Math <-> Direct SymPy Code)
-  card.querySelector('.btn-mode-visual').addEventListener('click', () => {
+  card.querySelector('.btn-mode-visual').addEventListener('click', async () => {
     if (cell.mode !== 'visual') {
-      switchCellMode(cell, card, 'visual');
+      await convertCodeCellToVisualMath(cell, card);
     }
   });
   card.querySelector('.btn-mode-code').addEventListener('click', () => {
@@ -3322,10 +3488,16 @@ function buildCellDOM(cell, idx) {
     }
   });
 
-  // Bi-Directional Bridge Button ("Convert to SymPy Code")
+  // Bi-Directional Bridge Buttons ("Convert to SymPy Code" <-> "Convert to Visual Math")
   card.querySelector('.btn-convert-to-code').addEventListener('click', async () => {
     await convertVisualCellToSympyCode(cell, card);
   });
+  const btnToVisual = card.querySelector('.btn-convert-to-visual');
+  if (btnToVisual) {
+    btnToVisual.addEventListener('click', async () => {
+      await convertCodeCellToVisualMath(cell, card);
+    });
+  }
 
   // Card click activates cell
   card.addEventListener('mousedown', () => {
@@ -3540,6 +3712,12 @@ function switchCellMode(cell, card, targetMode) {
   card.querySelector('.btn-convert-to-code').classList.toggle('hidden', isCode);
   card.querySelector('.btn-convert-to-code').classList.toggle('inline-flex', !isCode);
 
+  const btnConvertToVisual = card.querySelector('.btn-convert-to-visual');
+  if (btnConvertToVisual) {
+    btnConvertToVisual.classList.toggle('hidden', !isCode);
+    btnConvertToVisual.classList.toggle('inline-flex', isCode);
+  }
+
   const btnVis = card.querySelector('.btn-mode-visual');
   const btnCod = card.querySelector('.btn-mode-code');
   btnVis.className = `btn-mode-visual px-2 py-0.5 rounded transition ${!isCode ? 'bg-surface text-cobalt shadow-2xs font-semibold' : 'text-muted hover:text-ink'}`;
@@ -3568,6 +3746,11 @@ function switchCellMode(cell, card, targetMode) {
         AppState.codeMirrors[cell.id].refresh();
         AppState.codeMirrors[cell.id].focus();
       }, 20);
+    }
+  } else {
+    const mf = card.querySelector(`#mf_${cell.id}`);
+    if (mf && cell.latex !== undefined) {
+      mf.value = cell.latex;
     }
   }
   saveNotebookToLocalStorage();
@@ -3609,6 +3792,54 @@ async function convertVisualCellToSympyCode(cell, card) {
     AppState.codeMirrors[cell.id].setValue(generatedCode);
   }
   switchCellMode(cell, card, 'code');
+}
+
+async function convertCodeCellToVisualMath(cell, card) {
+  // Sync latest code from CodeMirror / Textarea
+  if (AppState.codeMirrors[cell.id]) {
+    cell.code = AppState.codeMirrors[cell.id].getValue();
+  } else {
+    const rawTextarea = card.querySelector(`#cm_${cell.id}`);
+    if (rawTextarea) cell.code = rawTextarea.value;
+  }
+
+  if (AppState.kernelReady && AppState.pyodide && (cell.code || '').trim()) {
+    try {
+      AppState.pyodide.globals.set('_code_conv_payload', cell.code);
+      const resJson = await AppState.pyodide.runPythonAsync('convert_code_to_visual(_code_conv_payload)');
+      const parsed = JSON.parse(resJson);
+      if (parsed.status === 'ok') {
+        if (parsed.latex) cell.latex = parsed.latex;
+        if (parsed.operation) cell.operation = parsed.operation;
+        if (parsed.params && Object.keys(parsed.params).length) {
+          cell.params = { ...cell.params, ...parsed.params };
+        }
+        if (parsed.assignTo !== undefined) cell.assignTo = parsed.assignTo;
+      }
+    } catch (e) {
+      console.warn('Code to visual conversion error:', e);
+    }
+  }
+
+  // Update MathLive field
+  const mf = card.querySelector(`#mf_${cell.id}`);
+  if (mf) mf.value = cell.latex || '';
+
+  // Update Operation dropdown & parameters
+  const opSelect = card.querySelector('.cell-op-select');
+  if (opSelect && cell.operation) {
+    opSelect.value = cell.operation;
+  }
+  renderCellParams(card, cell);
+
+  // Update Assign input
+  const assignInput = card.querySelector('.cell-assign-input');
+  if (assignInput) {
+    assignInput.value = cell.assignTo || '';
+  }
+
+  switchCellMode(cell, card, 'visual');
+  saveNotebookToLocalStorage();
 }
 
 function renderCellParams(card, cell) {
