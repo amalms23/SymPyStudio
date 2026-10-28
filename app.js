@@ -3930,14 +3930,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function bootPyodideKernel() {
-  setKernelStatus('loading', 'Kernel: Initializing Pyodide & SymPy...');
+  setKernelStatus('loading', '1/3 Loading Python WASM (~10MB)...');
   try {
     const pyodide = await loadPyodide({
       indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.1/full/'
     });
-    setKernelStatus('loading', 'Kernel: Loading SymPy CAS Package...');
+    setKernelStatus('loading', '2/3 Loading SymPy CAS (~12MB)...');
     await pyodide.loadPackage(['sympy']);
 
+    setKernelStatus('loading', '3/3 Initializing CAS & Suites...');
     await pyodide.runPythonAsync(PYTHON_BOOTSTRAP_CODE);
     await pyodide.runPythonAsync(PYTHON_EVAL_RUNNER);
 
@@ -3952,7 +3953,15 @@ async function bootPyodideKernel() {
     }
   } catch (err) {
     console.error('Pyodide initialization error:', err);
-    setKernelStatus('error', 'Kernel Error: Failed to load Pyodide');
+    setKernelStatus('error', 'Kernel Error: Click to Retry');
+    const pill = document.getElementById('kernelStatusPill');
+    if (pill) {
+      pill.style.cursor = 'pointer';
+      pill.onclick = () => {
+        pill.onclick = null;
+        bootPyodideKernel();
+      };
+    }
   }
 }
 
@@ -3963,7 +3972,7 @@ function setKernelStatus(state, text) {
   const label = document.getElementById('kernelStatusText');
 
   label.textContent = text;
-  pill.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ';
+  pill.className = 'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium border transition-all ';
 
   if (state === 'loading' || state === 'busy') {
     pill.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200');
@@ -3972,10 +3981,14 @@ function setKernelStatus(state, text) {
   } else if (state === 'ready') {
     pill.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
     spinner.classList.add('hidden');
+    dot.classList.remove('hidden');
     dot.className = 'w-2 h-2 rounded-full bg-emerald-600';
+    pill.style.cursor = 'default';
+    pill.onclick = null;
   } else {
     pill.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
     spinner.classList.add('hidden');
+    dot.classList.remove('hidden');
     dot.className = 'w-2 h-2 rounded-full bg-red-600';
   }
 }

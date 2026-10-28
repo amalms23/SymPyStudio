@@ -111,11 +111,11 @@
         </select>
       </div>
 
-      <!-- Kernel Status Pill (Compact on mobile, expanded on desktop) -->
-      <div id="kernelStatusPill" class="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all shrink-0 cursor-default" title="Kernel Status">
-        <span id="kernelSpinner" class="w-2.5 h-2.5 rounded-full border-2 border-amber-600 border-t-transparent animate-spin"></span>
-        <span id="kernelDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 hidden"></span>
-        <span id="kernelStatusText" class="hidden md:inline">Kernel: Initializing...</span>
+      <!-- Kernel Status Pill (Live WebAssembly & SymPy Progress) -->
+      <div id="kernelStatusPill" class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all shrink-0 cursor-default" title="Pyodide WebAssembly CAS Kernel Status">
+        <span id="kernelSpinner" class="w-2.5 h-2.5 rounded-full border-2 border-amber-600 border-t-transparent animate-spin shrink-0"></span>
+        <span id="kernelDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 hidden shrink-0"></span>
+        <span id="kernelStatusText" class="truncate max-w-[120px] xs:max-w-[170px] sm:max-w-[230px] md:max-w-none">Kernel: Initializing...</span>
       </div>
     </div>
 
