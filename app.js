@@ -18,6 +18,7 @@ const AppState = {
   evalCounter: 0,
   sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   paletteOpen: true,
+  ribbonOpen: true,
   symbolAssumptions: {}, // { symName: { positive, real, integer, nonzero } }
   codeMirrors: {},       // { cellId: CodeMirrorInstance }
   previewTimers: {},     // { cellId: timeoutId } for live code -> visual math preview
@@ -2562,6 +2563,22 @@ function initUIHandlers() {
     });
   });
 
+  // Toggle Operations Ribbon Panel Container
+  const btnToggleRibbon = document.getElementById('btnToggleRibbon');
+  if (btnToggleRibbon) {
+    btnToggleRibbon.addEventListener('click', () => {
+      AppState.ribbonOpen = !AppState.ribbonOpen;
+      const container = document.getElementById('ribbonPanelsContainer');
+      const chevron = document.getElementById('ribbonChevron');
+      if (container) {
+        container.classList.toggle('ribbon-collapsed', !AppState.ribbonOpen);
+      }
+      if (chevron) {
+        chevron.style.transform = AppState.ribbonOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+    });
+  }
+
   // Toggle Math Palette Drawer
   document.getElementById('btnTogglePalette').addEventListener('click', () => {
     AppState.paletteOpen = !AppState.paletteOpen;
@@ -2575,6 +2592,59 @@ function initUIHandlers() {
       chevron.style.transform = 'rotate(-180deg)';
     }
   });
+
+  // Mobile / Tablet Overflow Menu ("..." Button)
+  const btnMobileMore = document.getElementById('btnMobileMore');
+  const mobileMoreMenu = document.getElementById('mobileMoreMenu');
+  if (btnMobileMore && mobileMoreMenu) {
+    btnMobileMore.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mobileMoreMenu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+      if (!mobileMoreMenu.contains(e.target) && e.target !== btnMobileMore) {
+        mobileMoreMenu.classList.add('hidden');
+      }
+    });
+  }
+
+  const btnMobileSaveJson = document.getElementById('btnMobileSaveJson');
+  if (btnMobileSaveJson) {
+    btnMobileSaveJson.addEventListener('click', () => {
+      if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
+      downloadNotebookJson();
+    });
+  }
+
+  const inputMobileLoadJson = document.getElementById('inputMobileLoadJson');
+  if (inputMobileLoadJson) {
+    inputMobileLoadJson.addEventListener('change', (ev) => {
+      if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
+      uploadNotebookJson(ev);
+    });
+  }
+
+  const btnMobilePrint = document.getElementById('btnMobilePrint');
+  if (btnMobilePrint) {
+    btnMobilePrint.addEventListener('click', () => {
+      if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
+      document.getElementById('printTimestamp').textContent = 'Exported on ' + new Date().toLocaleString();
+      window.print();
+    });
+  }
+
+  const btnMobileClearMemory = document.getElementById('btnMobileClearMemory');
+  if (btnMobileClearMemory) {
+    btnMobileClearMemory.addEventListener('click', async () => {
+      if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
+      if (!AppState.kernelReady) return;
+      await AppState.pyodide.runPythonAsync('reset_session_memory()');
+      AppState.evalCounter = 0;
+      AppState.symbolAssumptions = {};
+      updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
+      saveNotebookToLocalStorage();
+    });
+  }
 
   // Toggle Variable Inspector Sidebar (Responsive Drawer on Mobile/Tablet, Docked on Desktop)
   function updateSidebarVisibility() {
@@ -2617,8 +2687,45 @@ function initUIHandlers() {
     });
   }
 
+  // Touch swipe to close the inspector drawer on mobile/tablet
+  const sidebarEl = document.getElementById('inspectorSidebar');
+  if (sidebarEl) {
+    let touchStartX = 0;
+    sidebarEl.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+    sidebarEl.addEventListener('touchend', (e) => {
+      if (e.changedTouches && e.changedTouches[0]) {
+        const touchEndX = e.changedTouches[0].clientX;
+        if (touchEndX - touchStartX > 60) {
+          AppState.sidebarOpen = false;
+          updateSidebarVisibility();
+        }
+      }
+    }, { passive: true });
+  }
+
+  // Auto-resize Plotly charts on window resize & orientation change
   window.addEventListener('resize', () => {
     updateSidebarVisibility();
+    document.querySelectorAll('.plotly-output-container:not(.hidden) > div[id^="plot_"]').forEach(plotEl => {
+      if (typeof Plotly !== 'undefined' && plotEl && plotEl.data) {
+        Plotly.Plots.resize(plotEl);
+      }
+    });
+  });
+
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      updateSidebarVisibility();
+      document.querySelectorAll('.plotly-output-container:not(.hidden) > div[id^="plot_"]').forEach(plotEl => {
+        if (typeof Plotly !== 'undefined' && plotEl && plotEl.data) {
+          Plotly.Plots.resize(plotEl);
+        }
+      });
+    }, 200);
   });
 
   // Apply initial sidebar visibility
@@ -4134,13 +4241,15 @@ function updateVariableInspectorUI(sessionData) {
   const varBadge = document.getElementById('varCountBadge');
   const outBadge = document.getElementById('outCountBadge');
   const assumptionsEl = document.getElementById('assumptionsActiveList');
+  const mobileDot = document.getElementById('mobileSidebarBadge');
 
   const vars = sessionData.vars || [];
   const outs = sessionData.outs || [];
   const assumptions = sessionData.assumptions || [];
 
-  varBadge.textContent = vars.length;
-  outBadge.textContent = outs.length;
+  if (varBadge) varBadge.textContent = vars.length;
+  if (outBadge) outBadge.textContent = outs.length;
+  if (mobileDot) mobileDot.classList.toggle('hidden', vars.length === 0 && outs.length === 0);
 
   if (assumptionsEl) {
     if (assumptions.length > 0) {
@@ -4249,29 +4358,42 @@ function renderTabsBar() {
   AppState.tabs.forEach(tab => {
     const isActive = tab.id === AppState.activeTabId;
     const el = document.createElement('div');
-    el.className = `notebook-tab group flex items-center gap-1.5 max-w-[220px] pl-3 pr-1.5 py-1 rounded-t-md border text-xs cursor-pointer select-none transition ${
+    el.className = `notebook-tab group flex items-center gap-1.5 max-w-[220px] pl-2.5 sm:pl-3 pr-1.5 py-1.5 rounded-t-md border text-xs cursor-pointer select-none transition shrink-0 ${
       isActive
         ? 'bg-surface border-borderWarm border-b-surface text-cobalt font-semibold shadow-2xs'
         : 'bg-subtle/60 border-transparent text-muted hover:text-ink hover:bg-subtle'
     }`;
-    el.title = `${tab.name}\n(double-click to rename)`;
+    el.title = `${tab.name}\n(tap edit or double-click to rename)`;
     el.innerHTML = `
-      <span class="truncate">${escapeHtml(tab.name)}</span>
-      <button class="btn-close-tab shrink-0 w-4 h-4 leading-none rounded text-muted hover:text-white hover:bg-red-500 ${isActive ? '' : 'opacity-0 group-hover:opacity-100'}" title="Close tab">&times;</button>
+      <span class="truncate max-w-[125px] sm:max-w-[160px]">${escapeHtml(tab.name)}</span>
+      <button class="btn-rename-tab shrink-0 w-4 h-4 leading-none rounded text-muted hover:text-cobalt opacity-70 hover:opacity-100 ${isActive ? '' : 'hidden sm:inline-block'}" title="Rename notebook tab">
+        <svg class="w-3 h-3 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      </button>
+      <button class="btn-close-tab shrink-0 w-4 h-4 leading-none rounded text-muted hover:text-white hover:bg-red-500 ${isActive ? '' : 'opacity-60 hover:opacity-100'}" title="Close tab">&times;</button>
     `;
-    el.addEventListener('click', (ev) => {
-      if (ev.target.closest('.btn-close-tab')) return;
-      switchTab(tab.id);
-    });
-    el.addEventListener('dblclick', (ev) => {
-      if (ev.target.closest('.btn-close-tab')) return;
+    const doRename = () => {
       const newName = prompt('Rename notebook tab:', tab.name);
       if (newName && newName.trim()) {
         tab.name = newName.trim().slice(0, 60);
         renderTabsBar();
         saveNotebookToLocalStorage();
       }
+    };
+    el.addEventListener('click', (ev) => {
+      if (ev.target.closest('.btn-close-tab') || ev.target.closest('.btn-rename-tab')) return;
+      switchTab(tab.id);
     });
+    el.addEventListener('dblclick', (ev) => {
+      if (ev.target.closest('.btn-close-tab')) return;
+      doRename();
+    });
+    const renameBtn = el.querySelector('.btn-rename-tab');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        doRename();
+      });
+    }
     el.querySelector('.btn-close-tab').addEventListener('click', (ev) => {
       ev.stopPropagation();
       closeTab(tab.id);

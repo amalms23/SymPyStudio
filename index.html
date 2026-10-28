@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
   <title>SymPyStudio — Visual CAS Notebook with Persistent Memory</title>
 
   <!-- Fonts: IBM Plex Sans, JetBrains Mono, Crimson Pro (Academic Serif) -->
@@ -63,29 +63,29 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="bg-paper text-ink font-sans antialiased selection:bg-blue-100 selection:text-cobalt h-screen flex flex-col overflow-hidden">
+<body class="bg-paper text-ink font-sans antialiased selection:bg-blue-100 selection:text-cobalt h-screen h-[100dvh] flex flex-col overflow-hidden">
 
   <!-- TOP HEADER BAR -->
   <header class="h-14 bg-surface border-b border-borderWarm px-2 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-2xs print-hidden gap-1.5 sm:gap-3">
     <!-- Brand & Title -->
-    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-cobalt text-white flex items-center justify-center font-serif font-bold text-lg sm:text-xl shadow-xs select-none">
+    <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-cobalt text-white flex items-center justify-center font-serif font-bold text-base sm:text-xl shadow-xs select-none">
         &Sigma;
       </div>
       <div>
-        <div class="flex items-center gap-1.5">
-          <h1 class="font-serif font-bold text-base sm:text-lg tracking-tight text-ink leading-none">SymPyStudio</h1>
-          <span class="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-subtle text-muted border border-borderWarm font-medium hidden sm:inline">v3.0</span>
+        <div class="flex items-center gap-1 sm:gap-1.5">
+          <h1 class="font-serif font-bold text-sm sm:text-lg tracking-tight text-ink leading-none">SymPyStudio</h1>
+          <span class="text-[9px] sm:text-[11px] font-mono uppercase tracking-wider px-1 sm:px-1.5 py-0.2 sm:py-0.5 rounded bg-subtle text-muted border border-borderWarm font-medium hidden xs:inline">v3.0</span>
         </div>
         <p class="text-[11px] text-muted hidden md:block leading-tight">Visual CAS &amp; Engineering Notebook</p>
       </div>
     </div>
 
     <!-- Kernel Status Pill & Templates Vault -->
-    <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+    <div class="flex items-center gap-1 sm:gap-2.5 min-w-0">
       <!-- Domain-Specific Template Vault Dropdown -->
       <div class="relative min-w-0">
-        <select id="presetSelector" class="text-xs bg-subtle hover:bg-zinc-200/70 text-ink font-semibold rounded-md px-2 sm:px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:ring-2 focus:ring-cobalt/20 cursor-pointer transition max-w-[125px] xs:max-w-[160px] sm:max-w-[210px] md:max-w-xs truncate">
+        <select id="presetSelector" class="text-xs bg-subtle hover:bg-zinc-200/70 text-ink font-semibold rounded-md px-1.5 sm:px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:ring-2 focus:ring-cobalt/20 cursor-pointer transition max-w-[115px] xs:max-w-[155px] sm:max-w-[210px] md:max-w-xs truncate" title="Templates & Physics Workflows">
           <option value="">Templates &amp; Physics...</option>
           <optgroup label="Start Fresh">
             <option value="blank">Empty Notebook (Blank Note)</option>
@@ -105,39 +105,68 @@
         </select>
       </div>
 
-      <!-- Kernel Status Pill (Compact on mobile) -->
-      <div id="kernelStatusPill" class="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all shrink-0" title="Kernel Status">
+      <!-- Kernel Status Pill (Compact on mobile, expanded on desktop) -->
+      <div id="kernelStatusPill" class="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 transition-all shrink-0 cursor-default" title="Kernel Status">
         <span id="kernelSpinner" class="w-2.5 h-2.5 rounded-full border-2 border-amber-600 border-t-transparent animate-spin"></span>
-        <span id="kernelDot" class="w-2 h-2 rounded-full bg-amber-500 hidden"></span>
+        <span id="kernelDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 hidden"></span>
         <span id="kernelStatusText" class="hidden md:inline">Kernel: Initializing...</span>
       </div>
     </div>
 
     <!-- Notebook File & Persistence Actions -->
     <div class="flex items-center gap-1 shrink-0">
-      <button id="btnEvaluateAll" title="Evaluate All Cells sequentially" class="px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-medium bg-cobalt/10 text-cobalt hover:bg-cobalt hover:text-white transition flex items-center gap-1">
+      <button id="btnEvaluateAll" title="Evaluate All Cells sequentially" class="px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-semibold bg-cobalt/10 text-cobalt hover:bg-cobalt hover:text-white transition flex items-center gap-1">
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6V4z"/></svg>
         <span class="hidden sm:inline">Run All</span>
       </button>
 
-      <button id="btnSaveJson" title="Download Notebook (.json)" class="p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition flex items-center gap-1">
+      <!-- Desktop-only Save / Load / Print buttons -->
+      <button id="btnSaveJson" title="Download Notebook (.json)" class="hidden md:flex p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition items-center gap-1">
         <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         <span class="hidden xl:inline">Save</span>
       </button>
 
-      <label for="inputLoadJson" title="Load Saved Notebook (.json)" class="p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition flex items-center gap-1 cursor-pointer">
+      <label for="inputLoadJson" title="Load Saved Notebook (.json)" class="hidden md:flex p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition items-center gap-1 cursor-pointer">
         <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         <span class="hidden xl:inline">Load</span>
         <input id="inputLoadJson" type="file" accept=".json" class="hidden" />
       </label>
 
-      <button id="btnExportPrint" title="Export as Printable PDF / Clean HTML View" class="hidden sm:flex p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition items-center gap-1">
+      <button id="btnExportPrint" title="Export as Printable PDF / Clean HTML View" class="hidden md:flex p-1.5 sm:px-2 sm:py-1.5 rounded-md text-xs font-medium bg-surface hover:bg-subtle text-ink border border-borderWarm transition items-center gap-1">
         <svg class="w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
         <span class="hidden xl:inline">Print</span>
       </button>
 
-      <button id="btnToggleSidebar" title="Toggle Variable Inspector Sidebar" class="p-1.5 rounded-md text-muted hover:text-ink hover:bg-subtle border border-borderWarm transition flex items-center gap-1">
+      <!-- Mobile / Tablet Overflow Menu ("..." button) -->
+      <div class="relative md:hidden">
+        <button id="btnMobileMore" title="More Notebook Options" class="p-1.5 rounded-md text-muted hover:text-ink hover:bg-subtle border border-borderWarm transition flex items-center justify-center">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        </button>
+        <div id="mobileMoreMenu" class="hidden absolute right-0 mt-1.5 w-48 bg-surface border border-borderWarm rounded-lg shadow-xl z-50 py-1 text-xs">
+          <button id="btnMobileSaveJson" class="w-full text-left px-3 py-2 hover:bg-subtle flex items-center gap-2 text-ink">
+            <svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>Save Notebook (.json)</span>
+          </button>
+          <label for="inputMobileLoadJson" class="w-full text-left px-3 py-2 hover:bg-subtle flex items-center gap-2 text-ink cursor-pointer">
+            <svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            <span>Load Notebook (.json)</span>
+            <input id="inputMobileLoadJson" type="file" accept=".json" class="hidden" />
+          </label>
+          <button id="btnMobilePrint" class="w-full text-left px-3 py-2 hover:bg-subtle flex items-center gap-2 text-ink">
+            <svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            <span>Print / PDF View</span>
+          </button>
+          <div class="border-t border-borderWarm my-1"></div>
+          <button id="btnMobileClearMemory" class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <span>Reset Session Memory</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="btnToggleSidebar" title="Toggle Variable Inspector Sidebar" class="p-1.5 rounded-md text-muted hover:text-ink hover:bg-subtle border border-borderWarm transition flex items-center gap-1 relative">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+        <span id="mobileSidebarBadge" class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cobalt hidden"></span>
       </button>
     </div>
   </header>
@@ -147,32 +176,36 @@
     <!-- Top Row: 5 Categorized Operation Tabs + Toggle Symbol Keypad -->
     <div class="px-2 sm:px-4 flex items-center justify-between border-b border-borderWarm/70 bg-subtle/50 gap-2">
       <div class="flex items-center space-x-1 overflow-x-auto py-1 flex-1 min-w-0" role="tablist" id="ribbonTabs" style="-webkit-overflow-scrolling: touch;">
-        <button data-tab="tab-calculus" class="ribbon-tab active px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-cobalt text-cobalt flex items-center gap-1.5 whitespace-nowrap">
+        <button data-tab="tab-calculus" class="ribbon-tab active px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-cobalt text-cobalt flex items-center gap-1 whitespace-nowrap shrink-0">
           <span>1. Calculus</span>
         </button>
-        <button data-tab="tab-algebra" class="ribbon-tab px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+        <button data-tab="tab-algebra" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
           <span>2. Algebra</span>
         </button>
-        <button data-tab="tab-linalg" class="ribbon-tab px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
-          <span>3. Linear Algebra</span>
+        <button data-tab="tab-linalg" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
+          <span>3. LinAlg</span>
         </button>
-        <button data-tab="tab-ode" class="ribbon-tab px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
-          <span>4. ODE Solvers</span>
+        <button data-tab="tab-ode" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
+          <span>4. ODEs</span>
         </button>
-        <button data-tab="tab-plotter" class="ribbon-tab px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+        <button data-tab="tab-plotter" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
           <span>5. Plotter</span>
         </button>
-        <button data-tab="tab-docs" class="ribbon-tab px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap">
+        <button data-tab="tab-docs" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
           <svg class="w-3.5 h-3.5 text-cobalt" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
           <span>6. Guide</span>
         </button>
       </div>
 
-      <div class="flex items-center gap-1.5 sm:gap-3 py-1 shrink-0">
-        <span id="activeCellIndicator" class="hidden sm:inline-block text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded border border-borderWarm">
+      <div class="flex items-center gap-1 sm:gap-2 py-1 shrink-0">
+        <span id="activeCellIndicator" class="hidden md:inline-block text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded border border-borderWarm">
           Target: In[1]
         </span>
-        <button id="btnTogglePalette" class="text-xs font-semibold text-cobalt hover:underline flex items-center gap-1 bg-surface px-2 py-1 rounded border border-borderWarm shadow-2xs">
+        <button id="btnToggleRibbon" title="Toggle Operation Toolbar" class="text-xs font-semibold text-muted hover:text-ink flex items-center gap-1 bg-surface px-2 py-1 rounded border border-borderWarm shadow-2xs">
+          <span class="hidden xs:inline">Tools</span>
+          <svg id="ribbonChevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+        </button>
+        <button id="btnTogglePalette" title="Toggle Math Keypads &amp; Symbol Palettes" class="text-xs font-semibold text-cobalt hover:underline flex items-center gap-1 bg-surface px-2 py-1 rounded border border-borderWarm shadow-2xs">
           <span class="hidden xs:inline">Palettes</span>
           <svg id="paletteChevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
@@ -180,7 +213,7 @@
     </div>
 
     <!-- Active Ribbon Tab Action Panels -->
-    <div class="px-4 py-2 bg-surface border-b border-borderWarm/60 text-xs">
+    <div id="ribbonPanelsContainer" class="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface border-b border-borderWarm/60 text-xs transition-all">
       <!-- TAB 1: CALCULUS & ANALYSIS -->
       <div id="tab-calculus" class="ribbon-panel flex flex-wrap items-center gap-2">
         <span class="text-[11px] font-mono uppercase text-muted mr-1">Configure Active Cell:</span>
