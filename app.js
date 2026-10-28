@@ -986,16 +986,72 @@ def convert_latex_matrix(s):
         s = re.sub(pattern, repl, s, flags=re.DOTALL)
     return s
 
+def _extract_braced(s, pos):
+    if pos >= len(s) or s[pos] != '{':
+        return None, pos
+    depth = 0
+    start = pos + 1
+    for i in range(pos, len(s)):
+        if s[i] == '{':
+            depth += 1
+        elif s[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return s[start:i], i + 1
+    return None, pos
+
+def _replace_fracs(s):
+    frac_macro = re.compile(r'\\(?:d|t)?frac\s*\{')
+    while True:
+        m = frac_macro.search(s)
+        if not m:
+            break
+        num, pos2 = _extract_braced(s, m.end() - 1)
+        if num is None:
+            break
+        while pos2 < len(s) and s[pos2].isspace():
+            pos2 += 1
+        if pos2 >= len(s) or s[pos2] != '{':
+            break
+        den, end_pos = _extract_braced(s, pos2)
+        if den is None:
+            break
+        num_replaced = _replace_fracs(num)
+        den_replaced = _replace_fracs(den)
+        s = s[:m.start()] + f"(({num_replaced})/({den_replaced}))" + s[end_pos:]
+    return s
+
+def _replace_sqrts(s):
+    # 1. \sqrt[n]{body}
+    sqrt_n_macro = re.compile(r'\\sqrt\s*\[([^\[\]]*)\]\s*\{')
+    while True:
+        m = sqrt_n_macro.search(s)
+        if not m:
+            break
+        deg = m.group(1)
+        body, end_pos = _extract_braced(s, m.end() - 1)
+        if body is None:
+            break
+        body_replaced = _replace_sqrts(body)
+        s = s[:m.start()] + f"(({body_replaced})**(1/({deg})))" + s[end_pos:]
+
+    # 2. \sqrt{body}
+    sqrt_macro = re.compile(r'\\sqrt\s*\{')
+    while True:
+        m = sqrt_macro.search(s)
+        if not m:
+            break
+        body, end_pos = _extract_braced(s, m.end() - 1)
+        if body is None:
+            break
+        body_replaced = _replace_sqrts(body)
+        s = s[:m.start()] + f"sqrt({body_replaced})" + s[end_pos:]
+    return s
+
 def replace_frac_and_sqrt(s):
-    frac_pat = re.compile(r'\\(?:d|t)?frac\{([^{}]*)\}\{([^{}]*)\}')
-    while frac_pat.search(s):
-        s = frac_pat.sub(r'((\1)/(\2))', s)
-    sqrt_n_pat = re.compile(r'\\sqrt\[([^\[\]]*)\]\{([^{}]*)\}')
-    while sqrt_n_pat.search(s):
-        s = sqrt_n_pat.sub(r'((\2)**(1/(\1)))', s)
-    sqrt_pat = re.compile(r'\\sqrt\{([^{}]*)\}')
-    while sqrt_pat.search(s):
-        s = sqrt_pat.sub(r'sqrt(\1)', s)
+    s = re.sub(r'\\(?:d|t)?frac\{\s*d\s*([a-zA-Z])\s*\}\{', r'\\frac{1}{', s)
+    s = _replace_fracs(s)
+    s = _replace_sqrts(s)
     return s
 
 def latex_to_sympy_str(latex_str, latest_idx=None):
@@ -1228,6 +1284,13 @@ def parse_math_input(latex_str, latest_idx=None):
         inner = cleaned[1:-1]
         parts = [parse_expr(p.strip(), local_dict=loc, transformations=transformations) for p in inner.split(',')]
         return sp.Matrix(parts), cleaned
+
+    # Check if cleaned is an equality: LHS = RHS (not ==)
+    if '=' in cleaned and not ('==' in cleaned):
+        l_s, r_s = cleaned.split('=', 1)
+        l_e = parse_expr(l_s.strip(), local_dict=loc, transformations=transformations)
+        r_e = parse_expr(r_s.strip(), local_dict=loc, transformations=transformations)
+        return sp.Eq(l_e, r_e), cleaned
 
     try:
         expr = parse_expr(cleaned, local_dict=loc, transformations=transformations)
@@ -1656,10 +1719,34 @@ def convert_visual_to_sympy_code(payload_json):
         arg_tuple = '(' + ', '.join(arg_names) + (',)' if len(arg_names) == 1 else ')')
         body.append(fn_name + " = sp.Lambda(" + arg_tuple + ", " + rhs_code + ")")
         body.append("result = " + fn_name + "(" + ', '.join(arg_names) + ")")
-    elif op == 'eval' and var_def:
-        v_nm = var_def.group(1)
-        body.append(v_nm + " = " + pc(var_def.group(2)))
-        body.append("result = " + v_nm)
+    elif var_def:
+        v_nm = var_def.group(1).strip()
+        rhs_c = var_def.group(2).strip()
+        if op == 'eval':
+            body.append(v_nm + " = " + pc(rhs_c))
+        elif op == 'diff':
+            v = params.get('var', 'x').strip() or 'x'
+            n_ord = str(params.get('order', '1')).strip() or '1'
+            body.append(v_nm + " = sp.diff(" + pc(rhs_c) + ", " + pc(v) + ", " + n_ord + ")")
+        elif op == 'integrate_indef':
+            v = params.get('var', 'x').strip() or 'x'
+            body.append(v_nm + " = sp.integrate(" + pc(rhs_c) + ", " + pc(v) + ")")
+        elif op == 'integrate_def':
+            v = params.get('var', 'x').strip() or 'x'
+            body.append(v_nm + " = sp.integrate(" + pc(rhs_c) + ", (" + pc(v) + ", " + p_latex(params.get('lower', '0')) + ", " + p_latex(params.get('upper', 'pi')) + "))")
+        elif op in ('simplify', 'expand', 'factor', 'trigsimp'):
+            body.append(v_nm + " = sp." + op + "(" + pc(rhs_c) + ")")
+        elif op == 'apart':
+            v = params.get('var', 'x').strip() or 'x'
+            body.append(v_nm + " = sp.apart(" + pc(rhs_c) + ", " + pc(v) + ")")
+        elif op == 'solve':
+            v = params.get('var', 'x').strip() or 'x'
+            body.append("eq = sp.Eq(sp.Symbol('" + v_nm + "'), " + pc(rhs_c) + ")")
+            body.append(lhs + " = sp.solve(eq, " + pc(v) + ")")
+        else:
+            body.append(v_nm + " = " + pc(rhs_c))
+        if not any(ln.startswith('result =') for ln in body):
+            body.append("result = " + v_nm)
     elif op == 'eval':
         body.append(lhs + " = " + pc(cleaned))
     elif op == 'diff':
@@ -2172,14 +2259,56 @@ def execute_notebook_cell(payload_json):
             assigned_name = f"{fn_name}({', '.join(args_str)})"
             sympy_code_shown = f"def {fn_name}({', '.join(args_str)}): return {repr(rhs_expr)}"
 
-        elif op == 'eval' and var_def_match and '=' in raw_latex and not ('==' in raw_latex):
+        elif var_def_match and '=' in raw_latex and not ('==' in raw_latex):
             v_name = var_def_match.group(1).strip()
             rhs_str = var_def_match.group(2).strip()
             rhs_expr, _ = parse_math_input(rhs_str, latest_idx)
-            session_vars[v_name] = rhs_expr
+
+            if op == 'eval':
+                res_val = rhs_expr.doit() if hasattr(rhs_expr, 'doit') else rhs_expr
+                sympy_code_shown = f"{v_name} = {repr(res_val)}"
+            elif op == 'diff':
+                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                order = int(params.get('order', 1) or 1)
+                res_val = sp.diff(rhs_expr, v_sym, order)
+                sympy_code_shown = f"{v_name} = sp.diff({repr(rhs_expr)}, {v_sym}, {order})"
+            elif op == 'integrate_indef':
+                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                res_val = sp.integrate(rhs_expr, v_sym)
+                sympy_code_shown = f"{v_name} = sp.integrate({repr(rhs_expr)}, {v_sym})"
+            elif op == 'integrate_def':
+                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                a_lim, _ = parse_math_input(str(params.get('lower', '0')), latest_idx)
+                b_lim, _ = parse_math_input(str(params.get('upper', 'pi')), latest_idx)
+                res_val = sp.integrate(rhs_expr, (v_sym, a_lim, b_lim))
+                sympy_code_shown = f"{v_name} = sp.integrate({repr(rhs_expr)}, ({v_sym}, {repr(a_lim)}, {repr(b_lim)}))"
+            elif op == 'simplify':
+                res_val = sp.simplify(rhs_expr)
+                sympy_code_shown = f"{v_name} = sp.simplify({repr(rhs_expr)})"
+            elif op == 'expand':
+                res_val = sp.expand(rhs_expr)
+                sympy_code_shown = f"{v_name} = sp.expand({repr(rhs_expr)})"
+            elif op == 'factor':
+                res_val = sp.factor(rhs_expr)
+                sympy_code_shown = f"{v_name} = sp.factor({repr(rhs_expr)})"
+            elif op == 'apart':
+                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                res_val = sp.apart(rhs_expr, v_sym)
+                sympy_code_shown = f"{v_name} = sp.apart({repr(rhs_expr)}, {v_sym})"
+            elif op == 'trigsimp':
+                res_val = sp.trigsimp(rhs_expr)
+                sympy_code_shown = f"{v_name} = sp.trigsimp({repr(rhs_expr)})"
+            elif op == 'solve':
+                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                res_val = sp.solve(sp.Eq(sp.Symbol(v_name), rhs_expr), v_sym)
+                sympy_code_shown = f"sp.solve(sp.Eq(sp.Symbol('{v_name}'), {repr(rhs_expr)}), {v_sym})"
+            else:
+                res_val = rhs_expr.doit() if hasattr(rhs_expr, 'doit') else rhs_expr
+                sympy_code_shown = f"{v_name} = {repr(res_val)}"
+
+            session_vars[v_name] = res_val
             assigned_name = v_name
-            result_obj = rhs_expr
-            sympy_code_shown = f"{v_name} = {repr(rhs_expr)}"
+            result_obj = sp.Eq(sp.Symbol(v_name), res_val) if op != 'solve' else res_val
 
         elif op == 'solve':
             var_name = params.get('var', 'x').strip() or 'x'
@@ -2241,7 +2370,28 @@ def execute_notebook_cell(payload_json):
         else:
             expr, cleaned_str = parse_math_input(raw_latex, latest_idx)
 
-            if op == 'eval':
+            if isinstance(expr, sp.Equality):
+                def _apply_eq(e):
+                    if op == 'eval': return e.doit() if hasattr(e, 'doit') else e
+                    elif op == 'simplify': return sp.simplify(e)
+                    elif op == 'expand': return sp.expand(e)
+                    elif op == 'factor': return sp.factor(e)
+                    elif op == 'trigsimp': return sp.trigsimp(e)
+                    elif op == 'diff':
+                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                        o_n = int(params.get('order', 1) or 1)
+                        return sp.diff(e, v_s, o_n)
+                    elif op == 'integrate_indef':
+                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                        return sp.integrate(e, v_s)
+                    elif op == 'apart':
+                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
+                        return sp.apart(e, v_s)
+                    return e
+                result_obj = sp.Eq(_apply_eq(expr.lhs), _apply_eq(expr.rhs))
+                sympy_code_shown = f"sp.Eq({repr(result_obj.lhs)}, {repr(result_obj.rhs)})"
+
+            elif op == 'eval':
                 result_obj = expr.doit() if hasattr(expr, 'doit') else expr
                 if cleaned_str.startswith(('integrate(', 'diff(', 'limit(', 'summation(', 'product(')):
                     sympy_code_shown = f"sp.{cleaned_str}"
