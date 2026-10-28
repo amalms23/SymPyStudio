@@ -87,8 +87,13 @@
       <div class="relative min-w-0">
         <select id="presetSelector" class="text-xs bg-subtle hover:bg-zinc-200/70 text-ink font-semibold rounded-md px-1.5 sm:px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:ring-2 focus:ring-cobalt/20 cursor-pointer transition max-w-[115px] xs:max-w-[155px] sm:max-w-[210px] md:max-w-xs truncate" title="Templates & Physics Workflows">
           <option value="">Templates &amp; Physics...</option>
-          <optgroup label="Start Fresh">
-            <option value="blank">Empty Notebook (Blank Note)</option>
+          <optgroup label="Dedicated Solid Mechanics &amp; Electrodynamics Suites">
+            <option value="suite_solid_cantilever">Solid: Cantilever Beam &amp; Airy Stress (Mohr Plot)</option>
+            <option value="suite_solid_pressurized_cylinder">Solid: Lamé Thick-Walled Cylinder &amp; Yield</option>
+            <option value="suite_solid_yield_criterion">Solid: von Mises, Tresca &amp; Invariants (I₁, J₂)</option>
+            <option value="suite_em_dipole">EM: Radiating Electric &amp; Magnetic Dipoles</option>
+            <option value="suite_em_maxwell_wave">EM: Plane Wave, Lorenz Gauge &amp; Poynting Flux</option>
+            <option value="suite_em_waveguide">EM: Waveguide TE/TM Modes &amp; Maxwell Stress</option>
           </optgroup>
           <optgroup label="Domain Physics &amp; Mechanics Vault">
             <option value="elasticity_2d">1. Solid Mechanics &amp; 2D Elasticity</option>
@@ -101,6 +106,7 @@
             <option value="harmonic">Damped Harmonic Oscillator</option>
             <option value="electrostatics">Electrostatics Multipole</option>
             <option value="linalg">Coupled Oscillators (Matrix)</option>
+            <option value="blank">Empty Notebook (Blank Note)</option>
           </optgroup>
         </select>
       </div>
@@ -191,9 +197,13 @@
         <button data-tab="tab-plotter" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
           <span>5. Plotter</span>
         </button>
+        <button data-tab="tab-suites" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1.5 whitespace-nowrap shrink-0">
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-500 shadow-2xs"></span>
+          <span>6. Suites</span>
+        </button>
         <button data-tab="tab-docs" class="ribbon-tab px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold border-b-2 border-transparent text-muted hover:text-ink flex items-center gap-1 whitespace-nowrap shrink-0">
           <svg class="w-3.5 h-3.5 text-cobalt" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-          <span>6. Guide</span>
+          <span>7. Guide</span>
         </button>
       </div>
 
@@ -351,16 +361,90 @@
         <span class="text-[11px] text-muted ml-1 hidden xl:inline">Auto-generates live parameter sliders for unbound symbols.</span>
       </div>
 
-      <!-- TAB 6: DOCUMENTATION & GUIDE -->
+      <!-- TAB 6: SOLID MECHANICS & ELECTRODYNAMICS SUITES -->
+      <div id="tab-suites" class="ribbon-panel hidden flex-wrap items-center gap-2">
+        <!-- Curvilinear Vector Differential Operators -->
+        <div class="flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+          <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 select-none mr-1">Curvilinear:</span>
+          <button data-op="curv_grad" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-emerald-600 hover:text-white font-medium transition" title="Curvilinear Gradient ∇φ (Cartesian, Cylindrical, Spherical)">
+            Grad (&nabla;&phi;)
+          </button>
+          <button data-op="curv_div" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-emerald-600 hover:text-white font-medium transition" title="Curvilinear Divergence ∇·F (Cartesian, Cylindrical, Spherical)">
+            Div (&nabla;&middot;F)
+          </button>
+          <button data-op="curv_curl" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-emerald-600 hover:text-white font-medium transition" title="Curvilinear Curl ∇×F (Cartesian, Cylindrical, Spherical)">
+            Curl (&nabla;&times;F)
+          </button>
+          <button data-op="curv_laplacian" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-emerald-600 hover:text-white font-medium transition" title="Curvilinear Laplacian ∇²φ (Cartesian, Cylindrical, Spherical)">
+            Laplacian (&nabla;&sup2;&phi;)
+          </button>
+        </div>
+
+        <div class="h-4 w-[1px] bg-borderWarm mx-0.5 hidden sm:block"></div>
+
+        <!-- Solid Mechanics & Elasticity Group -->
+        <div class="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
+          <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 select-none mr-1">Solid Mech:</span>
+          <button data-op="mech_strain" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-amber-600 hover:text-white font-medium transition" title="Small-strain tensor ε_ij = 1/2(∂_i u_j + ∂_j u_i)">
+            Strain &epsilon;(u)
+          </button>
+          <button data-op="mech_compat" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-amber-600 hover:text-white font-medium transition" title="Saint-Venant compatibility ∇×(∇×ε)^T = 0">
+            Compatibility
+          </button>
+          <button data-op="mech_hooke" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-amber-600 hover:text-white font-medium transition" title="Constitutive Hooke's Law (Plane Stress, Strain, 3D)">
+            Hooke's Law
+          </button>
+          <button data-op="mech_invariants" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-amber-600 hover:text-white font-medium transition" title="Stress invariants I1, I2, I3, deviatoric J2, and von Mises yield stress">
+            Invariants &amp; von Mises
+          </button>
+          <button data-op="mech_airy" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-amber-600 hover:text-white font-medium transition" title="Airy stress function Φ: Biharmonic check ∇⁴Φ=0 & Cauchy stress">
+            Airy Stress &Phi;
+          </button>
+          <button data-op="mech_mohr" class="op-preset-btn px-2 py-1 rounded bg-surface text-terracotta hover:bg-amber-600 hover:text-white font-semibold transition flex items-center gap-1" title="Interactive Mohr's Circle Plot & Principal Stresses">
+            <span>Mohr's Circle</span>
+            <span class="text-[9px] px-1 py-0.2 rounded bg-amber-200/70 text-amber-900 uppercase font-mono">Plot</span>
+          </button>
+        </div>
+
+        <div class="h-4 w-[1px] bg-borderWarm mx-0.5 hidden sm:block"></div>
+
+        <!-- Electrodynamics Group -->
+        <div class="flex items-center gap-1 bg-indigo-500/10 px-2 py-1 rounded-md border border-indigo-500/20">
+          <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-800 select-none mr-1">Electrodynamics:</span>
+          <button data-op="em_maxwell_check" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-indigo-600 hover:text-white font-medium transition" title="Maxwell's Equations Verifier (Gauss, Faraday, Ampère)">
+            Maxwell Check
+          </button>
+          <button data-op="em_potentials" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-indigo-600 hover:text-white font-medium transition" title="Potentials to Fields: B = ∇×A, E = -∇V - ∂A/∂t">
+            (A, V) &rarr; E, B
+          </button>
+          <button data-op="em_gauge" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-indigo-600 hover:text-white font-medium transition" title="Verify Lorenz (∇·A + (1/c²)∂V/∂t = 0) and Coulomb (∇·A = 0) gauges">
+            Gauge Check
+          </button>
+          <button data-op="em_poynting" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-indigo-600 hover:text-white font-medium transition" title="Poynting Energy Flux S = (1/μ₀)(E × B) and Energy Density u">
+            Poynting Flux (S, u)
+          </button>
+          <button data-op="em_stress_tensor" class="op-preset-btn px-2 py-1 rounded bg-surface hover:bg-indigo-600 hover:text-white font-medium transition" title="Maxwell Stress Tensor T_ij and EM force density f = ∇·T">
+            Maxwell Stress T<sub>ij</sub>
+          </button>
+          <button data-op="em_field_plot" class="op-preset-btn px-2 py-1 rounded bg-surface text-indigo-700 hover:bg-indigo-600 hover:text-white font-semibold transition flex items-center gap-1" title="2D EM Quiver Field Plot with Div/Curl Analysis">
+            <span>EM Quiver</span>
+            <span class="text-[9px] px-1 py-0.2 rounded bg-indigo-200/70 text-indigo-900 uppercase font-mono">Plot</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 7: DOCUMENTATION & GUIDE -->
       <div id="tab-docs" class="ribbon-panel hidden flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-[11px] font-mono uppercase text-muted mr-1">Jump to Section:</span>
           <a href="#doc-overview" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Overview</a>
-          <a href="#doc-memory" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Session Memory &amp; <code class="font-mono">%n</code></a>
-          <a href="#doc-operations" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Operations Reference</a>
-          <a href="#doc-linalg" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Matrices &amp; Vectors</a>
-          <a href="#doc-ode" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">ODE Solver</a>
-          <a href="#doc-shortcuts" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Shortcuts &amp; LaTeX</a>
+          <a href="#doc-memory" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Memory</a>
+          <a href="#doc-suites-solid" class="px-2.5 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-600 hover:text-white font-medium transition">Solid Mechanics</a>
+          <a href="#doc-suites-em" class="px-2.5 py-1 rounded bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-600 hover:text-white font-medium transition">Electrodynamics</a>
+          <a href="#doc-operations" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">All Operations</a>
+          <a href="#doc-linalg" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Matrices</a>
+          <a href="#doc-ode" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">ODE &amp; Plots</a>
+          <a href="#doc-shortcuts" class="px-2.5 py-1 rounded bg-subtle hover:bg-cobalt hover:text-white font-medium transition">Shortcuts</a>
         </div>
         <button id="btnBackToNotebook" class="px-3 py-1 rounded bg-cobalt text-white hover:bg-blue-800 font-semibold transition flex items-center gap-1.5">
           <span>&larr; Return to Notebook Canvas</span>
@@ -611,14 +695,299 @@
                     <td class="py-2 px-3 text-muted">Algebraic rewrites, polynomial factoring, partial fraction decomposition (<code class="font-mono">apart</code>), and trigonometric reduction.</td>
                     <td class="py-2 px-3 font-mono text-[11px]">sp.simplify / expand / factor / apart / trigsimp</td>
                   </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-semibold text-amber-700" rowspan="6">6. Solid Mechanics Suite</td>
+                    <td class="py-2 px-3 font-medium">Strain Tensor $\boldsymbol{\varepsilon}(\mathbf{u})$</td>
+                    <td class="py-2 px-3 text-muted">Derives small-strain tensor $\varepsilon_{ij} = \frac{1}{2}(\partial_i u_j + \partial_j u_i)$ from displacement vector $\mathbf{u}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_strain</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Saint-Venant Compatibility</td>
+                    <td class="py-2 px-3 text-muted">Verifies $\nabla \times (\nabla \times \boldsymbol{\varepsilon})^T = 0$ for 2D/3D strain fields to ensure integrability to displacement.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_compat</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Constitutive Hooke's Law</td>
+                    <td class="py-2 px-3 text-muted">Converts between stress $\boldsymbol{\sigma}$ and strain $\boldsymbol{\varepsilon}$ for Plane Stress, Plane Strain, and 3D isotropic media.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_hooke</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Stress Invariants &amp; von Mises</td>
+                    <td class="py-2 px-3 text-muted">Calculates invariants $I_1, I_2, I_3$, deviatoric stress $\mathbf{S}$, $J_2 = \frac{1}{2}\mathrm{tr}(\mathbf{S}^2)$, and yield stress $\sigma_{vm} = \sqrt{3J_2}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_invariants</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Airy Stress Function $\Phi(x,y)$</td>
+                    <td class="py-2 px-3 text-muted">Verifies biharmonic equation $\nabla^4\Phi = 0$ and extracts Cauchy stresses $\sigma_{xx} = \Phi_{,yy}$, $\sigma_{yy} = \Phi_{,xx}$, $\tau_{xy} = -\Phi_{,xy}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_airy</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Mohr's Circle Plotter</td>
+                    <td class="py-2 px-3 text-muted">Computes $\sigma_{avg}, R, \sigma_1, \sigma_2, \tau_{max}, \theta_p$ and plots an interactive, proportional Mohr's circle.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">mech_mohr</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-semibold text-indigo-700" rowspan="6">6. Electrodynamics Suite</td>
+                    <td class="py-2 px-3 font-medium">Curvilinear Differential Operators</td>
+                    <td class="py-2 px-3 text-muted">Gradient $\nabla\phi$, Divergence $\nabla\cdot\mathbf{F}$, Curl $\nabla\times\mathbf{F}$, and Laplacian $\nabla^2\phi$ in Cartesian, Cylindrical, and Spherical coordinates.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">curv_grad / div / curl / laplacian</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Maxwell's Equations Verifier</td>
+                    <td class="py-2 px-3 text-muted">Validates all 4 differential Maxwell equations (Gauss, Gauss Magnetism, Faraday, Ampère-Maxwell) for given $\mathbf{E}, \mathbf{B}, \rho, \mathbf{J}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">em_maxwell_check</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Potentials to Fields</td>
+                    <td class="py-2 px-3 text-muted">Derives physical electromagnetic fields: $\mathbf{B} = \nabla \times \mathbf{A}$ and $\mathbf{E} = -\nabla V - \partial_t\mathbf{A}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">em_potentials</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Lorenz &amp; Coulomb Gauge Check</td>
+                    <td class="py-2 px-3 text-muted">Evaluates $\nabla \cdot \mathbf{A} + \frac{1}{c^2}\partial_t V = 0$ (Lorenz) and $\nabla \cdot \mathbf{A} = 0$ (Coulomb).</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">em_gauge</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Poynting Energy Flux &amp; Density</td>
+                    <td class="py-2 px-3 text-muted">Computes Poynting vector $\mathbf{S} = \frac{1}{\mu_0}(\mathbf{E}\times\mathbf{B})$, EM energy density $u = \frac{1}{2}(\varepsilon_0 E^2 + \frac{1}{\mu_0}B^2)$, and momentum flux.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">em_poynting</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-medium">Maxwell Stress Tensor $T_{ij}$</td>
+                    <td class="py-2 px-3 text-muted">Derives stress tensor $T_{ij} = \varepsilon_0(E_i E_j - \frac{1}{2}\delta_{ij}E^2) + \frac{1}{\mu_0}(B_i B_j - \frac{1}{2}\delta_{ij}B^2)$ and force density $\mathbf{f} = \nabla\cdot\mathbf{T}$.</td>
+                    <td class="py-2 px-3 font-mono text-[11px]">em_stress_tensor</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </section>
 
-          <!-- Section 4: Linear Algebra, Matrices & Vector Calculus -->
+          <!-- Section 3: Solid Mechanics & Theory of Elasticity Suite -->
+          <section id="doc-suites-solid" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-5">
+            <div class="border-b border-borderWarm pb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="text-[10px] font-mono uppercase tracking-widest font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Engineering Continuum Mechanics</span>
+                <h3 class="font-serif font-bold text-xl text-ink mt-1">3. Solid Mechanics &amp; Theory of Elasticity Suite</h3>
+              </div>
+              <span class="text-xs text-muted font-mono">Operations: mech_strain, mech_compat, mech_hooke, mech_invariants, mech_airy, mech_mohr</span>
+            </div>
+
+            <p class="text-xs sm:text-sm text-muted leading-relaxed">
+              Designed specifically for research and graduate derivations in continuum solid mechanics, elasticity theory, structural analysis, and yield surface failure modeling.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <!-- Kinematics & Compatibility -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                  <span>1. Kinematics &amp; Saint-Venant Compatibility</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p><strong>Small-Strain Tensor:</strong> Given displacement field $\mathbf{u} = [u(x,y,z), v(x,y,z), w(x,y,z)]^T$:</p>
+                  <p class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px]">
+                    &epsilon;<sub>ij</sub> = &frac12; (&part;u<sub>i</sub>/&part;x<sub>j</sub> + &part;u<sub>j</sub>/&part;x<sub>i</sub>), &quad; &gamma;<sub>xy</sub> = 2 &epsilon;<sub>xy</sub>
+                  </p>
+                  <p><strong>Saint-Venant Compatibility Condition:</strong> In simply-connected domains, a symmetric tensor field $\boldsymbol{\varepsilon}$ corresponds to a single-valued, continuous displacement field $\mathbf{u}$ if and only if its compatibility curvature tensor vanishes identically:</p>
+                  <p class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px]">
+                    &nabla; &times; (&nabla; &times; &epsilon;)<sup>T</sup> = 0
+                  </p>
+                  <p class="text-[11px]">In 2D: $\frac{\partial^2 \varepsilon_{xx}}{\partial y^2} + \frac{\partial^2 \varepsilon_{yy}}{\partial x^2} - 2\frac{\partial^2 \varepsilon_{xy}}{\partial x \partial y} = 0$. In 3D: all 6 compatibility equations ($S_{11}, S_{22}, S_{33}, S_{12}, S_{23}, S_{31}$) must equal zero.</p>
+                </div>
+              </div>
+
+              <!-- Hooke's Law & Voigt Form -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                  <span>2. Generalized Isotropic Hooke's Law</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p>Relates Cauchy stress tensor $\boldsymbol{\sigma}$ and strain tensor $\boldsymbol{\varepsilon}$ via elastic modulus $E$ and Poisson's ratio $\nu$:</p>
+                  <ul class="list-disc list-inside space-y-1 text-muted">
+                    <li><strong>Plane Stress ($\sigma_{zz} = 0$):</strong> Thin plates loaded in-plane:
+                      <div class="font-mono text-ink bg-surface p-1.5 rounded border border-borderWarm/80 text-[11px] my-1">
+                        &sigma;<sub>xx</sub> = &frac{E}{1-&nu;&sup2;} (&epsilon;<sub>xx</sub> + &nu;&epsilon;<sub>yy</sub>), &quad; &tau;<sub>xy</sub> = &frac{E}{1+&nu;} &epsilon;<sub>xy</sub>
+                      </div>
+                    </li>
+                    <li><strong>Plane Strain ($\varepsilon_{zz} = 0$):</strong> Thick structures, dams, tunnels:
+                      <div class="font-mono text-ink bg-surface p-1.5 rounded border border-borderWarm/80 text-[11px] my-1">
+                        &sigma;<sub>xx</sub> = &frac{E}{(1+&nu;)(1-2&nu;)} [(1-&nu;)&epsilon;<sub>xx</sub> + &nu;&epsilon;<sub>yy</sub>], &quad; &sigma;<sub>zz</sub> = &nu;(&sigma;<sub>xx</sub> + &sigma;<sub>yy</sub>)
+                      </div>
+                    </li>
+                    <li><strong>3D Isotropic Media:</strong> $\boldsymbol{\sigma} = 2\mu \boldsymbol{\varepsilon} + \lambda \mathrm{tr}(\boldsymbol{\varepsilon})\mathbf{I}$ with Lamé constants $\lambda = \frac{E\nu}{(1+\nu)(1-2\nu)}$ and $\mu = G = \frac{E}{2(1+\nu)}$.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Stress Invariants & von Mises Yield Criterion -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                  <span>3. Stress Invariants &amp; von Mises Yield Stress</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p>Given Cauchy stress $\boldsymbol{\sigma}$, the hydrostatic mean stress is $\sigma_m = \frac{1}{3}\mathrm{tr}(\boldsymbol{\sigma})$, and the deviatoric stress tensor is $\mathbf{S} = \boldsymbol{\sigma} - \sigma_m \mathbf{I}$.</p>
+                  <p><strong>Fundamental Invariants:</strong></p>
+                  <div class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px] space-y-0.5">
+                    <div>I<sub>1</sub> = tr(&sigma;) = &sigma;<sub>xx</sub> + &sigma;<sub>yy</sub> + &sigma;<sub>zz</sub></div>
+                    <div>I<sub>2</sub> = &frac12; [I<sub>1</sub>&sup2; - tr(&sigma;&sup2;)]</div>
+                    <div>I<sub>3</sub> = det(&sigma;)</div>
+                    <div>J<sub>2</sub> = &frac12; tr(S&sup2;) = &frac13; I<sub>1</sub>&sup2; - I<sub>2</sub></div>
+                    <div>&sigma;<sub>vm</sub> = &radic;(3 J<sub>2</sub>) = &radic;(&frac12;[(&sigma;<sub>1</sub>-&sigma;<sub>2</sub>)&sup2; + (&sigma;<sub>2</sub>-&sigma;<sub>3</sub>)&sup2; + (&sigma;<sub>3</sub>-&sigma;<sub>1</sub>)&sup2;])</div>
+                  </div>
+                  <p class="text-[11px]">von Mises yielding occurs when $\sigma_{vm} \ge \sigma_y$. Tresca criterion occurs when $\tau_{max} = \frac{\sigma_1 - \sigma_3}{2} \ge \tau_y$.</p>
+                </div>
+              </div>
+
+              <!-- Airy Stress Functions & Mohr's Circle -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-600"></span>
+                  <span>4. Airy Stress Functions &amp; Mohr's Circle Plot</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p><strong>Airy Potential $\Phi(x, y)$:</strong> Satisfies exact Cauchy equilibrium in the absence of body forces:</p>
+                  <div class="font-mono text-ink bg-surface p-1.5 rounded border border-borderWarm/80 text-[11px]">
+                    &sigma;<sub>xx</sub> = &part;&sup2;&Phi;/&part;y&sup2;, &quad; &sigma;<sub>yy</sub> = &part;&sup2;&Phi;/&part;x&sup2;, &quad; &tau;<sub>xy</sub> = -&part;&sup2;&Phi;/&part;x&part;y
+                  </div>
+                  <p>The biharmonic governing equation ensures compatibility: $\nabla^4\Phi = \frac{\partial^4\Phi}{\partial x^4} + 2\frac{\partial^4\Phi}{\partial x^2 \partial y^2} + \frac{\partial^4\Phi}{\partial y^4} = 0$.</p>
+                  <p><strong>Mohr's Circle Plot:</strong> Enter $[\sigma_x, \sigma_y, \tau_{xy}]$ to obtain principal stresses $\sigma_1, \sigma_2 = \sigma_{avg} \pm R$, max shear $\tau_{max} = R$, and orientation angle $\theta_p = \frac{1}{2}\mathrm{atan2}(2\tau_{xy}, \sigma_x - \sigma_y)$ alongside a proportional Plotly circle with diameter line and state markers.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Example Walkthrough for Solid Mechanics -->
+            <div class="p-4 rounded-lg bg-subtle/50 border border-borderWarm space-y-2 text-xs">
+              <h4 class="font-bold text-ink">Concrete Example: Cantilever Beam with Tip Load P</h4>
+              <p class="text-muted">Airy polynomial potential $\Phi(x, y) = -\frac{P}{2 I} x y^2 + \frac{P}{6 I} y^3$. Enter this in a cell and select <strong>Airy Stress Φ</strong>:</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-[11px]">
+                <div class="bg-surface p-2 rounded border border-borderWarm">
+                  <span class="text-muted block text-[10px] uppercase font-bold">Input (Airy Function):</span>
+                  <code>-\frac{P}{2 I} x y^2 + \frac{P}{6 I} y^3</code>
+                </div>
+                <div class="bg-surface p-2 rounded border border-borderWarm">
+                  <span class="text-muted block text-[10px] uppercase font-bold">Output (Cauchy Stress Tensor):</span>
+                  <code>&sigma;<sub>xx</sub> = -\frac{P x y}{I}, &quad; &sigma;<sub>yy</sub> = 0, &quad; &tau;<sub>xy</sub> = \frac{P}{2 I} y^2</code>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 4: Electrodynamics & Curvilinear Field Theory Suite -->
+          <section id="doc-suites-em" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-5">
+            <div class="border-b border-borderWarm pb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="text-[10px] font-mono uppercase tracking-widest font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">Theoretical &amp; Applied Field Theory</span>
+                <h3 class="font-serif font-bold text-xl text-ink mt-1">4. Electrodynamics &amp; Curvilinear Field Theory Suite</h3>
+              </div>
+              <span class="text-xs text-muted font-mono">Operations: curv_grad, curv_div, curv_curl, curv_laplacian, em_maxwell_check, em_potentials, em_gauge, em_poynting, em_stress_tensor, em_field_plot</span>
+            </div>
+
+            <p class="text-xs sm:text-sm text-muted leading-relaxed">
+              End-to-end vector calculus across orthogonal curvilinear coordinate systems, electromagnetic radiation potentials, gauge invariance verifications, energy-momentum tensors, and field line quiver plotting.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <!-- Curvilinear Vector Differential Operators -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                  <span>1. Curvilinear Vector Calculus (&nabla;, &nabla;&middot;, &nabla;&times;, &nabla;&sup2;)</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p>Supports metric scale factors $h_1, h_2, h_3$ for orthogonal coordinates $(u_1, u_2, u_3)$:</p>
+                  <ul class="list-disc list-inside space-y-1 text-muted">
+                    <li><strong>Cartesian $(x, y, z)$:</strong> $h = [1, 1, 1]$</li>
+                    <li><strong>Cylindrical $(r, \theta, z)$:</strong> $h = [1, r, 1]$</li>
+                    <li><strong>Spherical $(r, \theta, \phi)$:</strong> $h = [1, r, r\sin\theta]$</li>
+                  </ul>
+                  <p><strong>General Formulae:</strong></p>
+                  <div class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px] space-y-0.5">
+                    <div>&nabla;&phi; = &sum;<sub>i</sub> (1/h<sub>i</sub>) (&part;&phi;/&part;u<sub>i</sub>) &ecirc;<sub>i</sub></div>
+                    <div>&nabla;&middot;F = &frac{1}{h<sub>1</sub>h<sub>2</sub>h<sub>3</sub>} [&part;(h<sub>2</sub>h<sub>3</sub>F<sub>1</sub>)/&part;u<sub>1</sub> + &part;(h<sub>1</sub>h<sub>3</sub>F<sub>2</sub>)/&part;u<sub>2</sub> + &part;(h<sub>1</sub>h<sub>2</sub>F<sub>3</sub>)/&part;u<sub>3</sub>]</div>
+                    <div>&nabla;&sup2;&phi; = &frac{1}{h<sub>1</sub>h<sub>2</sub>h<sub>3</sub>} &sum;<sub>i</sub> &part;/&part;u<sub>i</sub> [(h<sub>1</sub>h<sub>2</sub>h<sub>3</sub>/h<sub>i</sub>&sup2;) &part;&phi;/&part;u<sub>i</sub>]</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Maxwell's Differential Equations -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                  <span>2. Maxwell's Equations Verifier</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p>Input candidate fields $[\mathbf{E}, \mathbf{B}]$ or pass source distributions $\rho, \mathbf{J}$ to verify the 4 fundamental laws of electromagnetism:</p>
+                  <div class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px] space-y-1">
+                    <div>1. Gauss's Law: &nabla;&middot;E = &rho; / &epsilon;<sub>0</sub></div>
+                    <div>2. Gauss's Law for Magnetism: &nabla;&middot;B = 0</div>
+                    <div>3. Faraday's Law: &nabla;&times;E + &part;B/&part;t = 0</div>
+                    <div>4. Amp&egrave;re-Maxwell Law: &nabla;&times;B - &mu;<sub>0</sub>&epsilon;<sub>0</sub> &part;E/&part;t = &mu;<sub>0</sub> J</div>
+                  </div>
+                  <p class="text-[11px]">The verifier outputs whether each law is identically satisfied (residual zero) or shows the required source distribution.</p>
+                </div>
+              </div>
+
+              <!-- Potentials & Gauge Invariance -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                  <span>3. Potentials &amp; Gauge Transformations</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p>Express fields in terms of magnetic vector potential $\mathbf{A}(t, \mathbf{x})$ and electric scalar potential $V(t, \mathbf{x})$:</p>
+                  <div class="font-mono text-ink bg-surface p-2 rounded border border-borderWarm/80 text-[11px]">
+                    B = &nabla; &times; A, &emsp; E = -&nabla;V - &part;A/&part;t
+                  </div>
+                  <p><strong>Gauge Fixing &amp; Invariance:</strong></p>
+                  <ul class="list-disc list-inside space-y-1 text-muted">
+                    <li><strong>Lorenz Gauge:</strong> $\nabla \cdot \mathbf{A} + \frac{1}{c^2}\frac{\partial V}{\partial t} = 0$ (decouples wave equations into $\Box \mathbf{A} = -\mu_0\mathbf{J}$ and $\Box V = -\rho/\varepsilon_0$).</li>
+                    <li><strong>Coulomb Gauge:</strong> $\nabla \cdot \mathbf{A} = 0$ (transverse gauge, ideal for magnetostatics and quantum optics).</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Poynting Vector & Maxwell Stress Tensor -->
+              <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-3">
+                <h4 class="font-bold text-ink text-sm flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                  <span>4. Poynting Vector &amp; Maxwell Stress Tensor</span>
+                </h4>
+                <div class="space-y-1.5 text-muted leading-relaxed">
+                  <p><strong>Poynting Energy Flux Vector &amp; Energy Density:</strong></p>
+                  <div class="font-mono text-ink bg-surface p-1.5 rounded border border-borderWarm/80 text-[11px]">
+                    S = &frac{1}{&mu;<sub>0</sub>} (E &times; B), &emsp; u = &frac12; (&epsilon;<sub>0</sub> |E|&sup2; + &frac{1}{&mu;<sub>0</sub>} |B|&sup2;)
+                  </div>
+                  <p><strong>Maxwell Stress Tensor $T_{ij}$ &amp; Force Density:</strong></p>
+                  <div class="font-mono text-ink bg-surface p-1.5 rounded border border-borderWarm/80 text-[11px]">
+                    T<sub>ij</sub> = &epsilon;<sub>0</sub> [E<sub>i</sub> E<sub>j</sub> - &frac12;&delta;<sub>ij</sub> E&sup2;] + &frac{1}{&mu;<sub>0</sub>} [B<sub>i</sub> B<sub>j</sub> - &frac12;&delta;<sub>ij</sub> B&sup2;]
+                  </div>
+                  <p class="text-[11px]">Total electromagnetic body force density: $\mathbf{f} = \nabla \cdot \mathbf{T} - \varepsilon_0\mu_0 \frac{\partial\mathbf{S}}{\partial t}$.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Example Walkthrough for Electrodynamics -->
+            <div class="p-4 rounded-lg bg-subtle/50 border border-borderWarm space-y-2 text-xs">
+              <h4 class="font-bold text-ink">Concrete Example: TEM Propagating Electromagnetic Wave</h4>
+              <p class="text-muted">Enter transverse fields $\mathbf{E} = [E_0 \cos(k z - \omega t), 0, 0]$ and $\mathbf{B} = [0, \frac{E_0}{c} \cos(k z - \omega t), 0]$, and select <strong>Poynting Flux (S, u)</strong>:</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-[11px]">
+                <div class="bg-surface p-2 rounded border border-borderWarm">
+                  <span class="text-muted block text-[10px] uppercase font-bold">Poynting Vector $\mathbf{S}$:</span>
+                  <code>S = [0, 0, \frac{E_0^2}{\mu_0 c} \cos^2(kz - \omega t)]^T</code>
+                </div>
+                <div class="bg-surface p-2 rounded border border-borderWarm">
+                  <span class="text-muted block text-[10px] uppercase font-bold">EM Energy Density $u$:</span>
+                  <code>u = \varepsilon_0 E_0^2 \cos^2(kz - \omega t)</code>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Section 5: Linear Algebra, Matrices & Vector Calculus -->
           <section id="doc-linalg" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
-            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">3. Linear Algebra, Matrices &amp; Vector Calculus (Tab 3)</h3>
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">5. Linear Algebra, Matrices &amp; Vector Calculus (Tab 3)</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
                 <h4 class="font-bold text-ink">Constructing &amp; Operating on Matrices</h4>
@@ -641,9 +1010,9 @@
             </div>
           </section>
 
-          <!-- Section 5: Differential Equations (ODE) & Plotting -->
+          <!-- Section 6: Differential Equations (ODE) & Plotting -->
           <section id="doc-ode" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
-            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">4. Differential Equations (ODE) &amp; Interactive Plotting (Tabs 4 &amp; 5)</h3>
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">6. Differential Equations (ODE) &amp; Interactive Plotting (Tabs 4 &amp; 5)</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div class="p-4 rounded-lg bg-paper border border-borderWarm space-y-2">
                 <h4 class="font-bold text-ink">1st &amp; 2nd Order ODE Solver (<code class="font-mono">sp.dsolve</code>)</h4>
@@ -667,9 +1036,9 @@
             </div>
           </section>
 
-          <!-- Section 6: Keyboard Shortcuts & Persistence -->
+          <!-- Section 7: Keyboard Shortcuts & Persistence -->
           <section id="doc-shortcuts" class="bg-surface border border-borderWarm rounded-xl p-6 shadow-xs space-y-4">
-            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">5. Keyboard Shortcuts, Saving &amp; Exporting</h3>
+            <h3 class="font-serif font-bold text-xl text-ink border-b border-borderWarm pb-2">7. Keyboard Shortcuts, Saving &amp; Exporting</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div class="space-y-2">
                 <h4 class="font-bold text-ink">Editor &amp; Cell Navigation Shortcuts</h4>

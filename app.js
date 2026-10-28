@@ -247,6 +247,196 @@ const OPERATIONS = {
       { key: 'ymax', label: 'y_max', type: 'text', default: '4', width: 'w-12' },
       { key: 'grid', label: 'Grid N', type: 'number', default: '15', width: 'w-14' }
     ]
+  },
+
+  // --- CURVILINEAR CALCULUS SUITE ---
+  curv_grad: {
+    label: 'Curvilinear Gradient (∇φ)',
+    category: 'tab-suites',
+    params: [
+      {
+        key: 'system',
+        label: 'System',
+        type: 'select',
+        default: 'cartesian',
+        options: [
+          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
+          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
+          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
+        ]
+      },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+    ]
+  },
+  curv_div: {
+    label: 'Curvilinear Divergence (∇·F)',
+    category: 'tab-suites',
+    params: [
+      {
+        key: 'system',
+        label: 'System',
+        type: 'select',
+        default: 'cartesian',
+        options: [
+          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
+          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
+          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
+        ]
+      },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+    ]
+  },
+  curv_curl: {
+    label: 'Curvilinear Curl (∇×F)',
+    category: 'tab-suites',
+    params: [
+      {
+        key: 'system',
+        label: 'System',
+        type: 'select',
+        default: 'cartesian',
+        options: [
+          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
+          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
+          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
+        ]
+      },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+    ]
+  },
+  curv_laplacian: {
+    label: 'Curvilinear Laplacian (∇²φ)',
+    category: 'tab-suites',
+    params: [
+      {
+        key: 'system',
+        label: 'System',
+        type: 'select',
+        default: 'cartesian',
+        options: [
+          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
+          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
+          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
+        ]
+      },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+    ]
+  },
+
+  // --- SOLID MECHANICS SUITE ---
+  mech_strain: {
+    label: 'Solid Mech: Small-Strain Tensor ε(u)',
+    category: 'tab-suites',
+    params: [
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' }
+    ]
+  },
+  mech_compat: {
+    label: 'Solid Mech: Saint-Venant Strain Compatibility',
+    category: 'tab-suites',
+    params: [
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' }
+    ]
+  },
+  mech_hooke: {
+    label: "Solid Mech: Constitutive Hooke's Law",
+    category: 'tab-suites',
+    params: [
+      {
+        key: 'state',
+        label: 'State',
+        type: 'select',
+        default: 'plane_stress',
+        options: [
+          { value: 'plane_stress', text: 'Plane Stress (2D)' },
+          { value: 'plane_strain', text: 'Plane Strain (2D)' },
+          { value: '3d', text: '3D Isotropic' }
+        ]
+      },
+      {
+        key: 'direction',
+        label: 'Relation',
+        type: 'select',
+        default: 'strain_to_stress',
+        options: [
+          { value: 'strain_to_stress', text: 'Strain ε → Stress σ' },
+          { value: 'stress_to_strain', text: 'Stress σ → Strain ε' }
+        ]
+      },
+      { key: 'E', label: "Modulus (E)", type: 'text', default: 'E', width: 'w-14' },
+      { key: 'nu', label: "Poisson (ν)", type: 'text', default: 'nu', width: 'w-14' }
+    ]
+  },
+  mech_invariants: {
+    label: 'Solid Mech: Stress Invariants (I₁, J₂) & von Mises',
+    category: 'tab-suites',
+    params: []
+  },
+  mech_airy: {
+    label: 'Solid Mech: Airy Stress Function Φ(x,y)',
+    category: 'tab-suites',
+    params: [
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y', width: 'w-16' }
+    ]
+  },
+  mech_mohr: {
+    label: "Solid Mech: Mohr's Circle Plot & Principal Stresses",
+    category: 'tab-suites',
+    params: []
+  },
+
+  // --- ELECTRODYNAMICS SUITE ---
+  em_maxwell_check: {
+    label: "Electrodynamics: Maxwell's Equations Verifier",
+    category: 'tab-suites',
+    params: [
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' },
+      { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' },
+      { key: 'rho', label: 'Charge ρ', type: 'text', default: '0', width: 'w-16' },
+      { key: 'J', label: 'Current J', type: 'text', default: '[0, 0, 0]', width: 'w-24' }
+    ]
+  },
+  em_potentials: {
+    label: 'Electrodynamics: Potentials (A, V) → Fields (E, B)',
+    category: 'tab-suites',
+    params: [
+      { key: 'V', label: 'Scalar Potential V', type: 'text', default: '0', width: 'w-28' },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' },
+      { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' }
+    ]
+  },
+  em_gauge: {
+    label: 'Electrodynamics: Lorenz & Coulomb Gauge Check',
+    category: 'tab-suites',
+    params: [
+      { key: 'V', label: 'Scalar Potential V', type: 'text', default: '0', width: 'w-28' },
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' },
+      { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' },
+      { key: 'c', label: 'Speed c', type: 'text', default: 'c', width: 'w-10' }
+    ]
+  },
+  em_poynting: {
+    label: 'Electrodynamics: Poynting Flux S = (1/μ₀)(E × B) & Energy u',
+    category: 'tab-suites',
+    params: []
+  },
+  em_stress_tensor: {
+    label: 'Electrodynamics: Maxwell Stress Tensor T_ij & Force Density',
+    category: 'tab-suites',
+    params: [
+      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' }
+    ]
+  },
+  em_field_plot: {
+    label: 'Electrodynamics: 2D Field Quiver Plot [Ex, Ey] / [Bx, By]',
+    category: 'tab-suites',
+    params: [
+      { key: 'xmin', label: 'x_min', type: 'text', default: '-5', width: 'w-12' },
+      { key: 'xmax', label: 'x_max', type: 'text', default: '5', width: 'w-12' },
+      { key: 'ymin', label: 'y_min', type: 'text', default: '-5', width: 'w-12' },
+      { key: 'ymax', label: 'y_max', type: 'text', default: '5', width: 'w-12' },
+      { key: 'grid', label: 'Grid N', type: 'number', default: '16', width: 'w-14' }
+    ]
   }
 };
 
@@ -257,6 +447,242 @@ const PRESET_NOTEBOOKS = {
   // ==========================================================================
   blank: [
     { mode: 'visual', latex: '', operation: 'eval' }
+  ],
+
+  // ==========================================================================
+  // SUITE 1: SOLID MECHANICS - CANTILEVER BEAM & AIRY STRESS (MOHR PLOT)
+  // ==========================================================================
+  suite_solid_cantilever: [
+    {
+      id: 'cell_sc_1',
+      mode: 'visual',
+      title: '1. Airy Stress Function for Tip-Loaded Cantilever Beam: Phi(x,y)',
+      latex: r'-\frac{P}{2 I} x y^2 + \frac{P}{6 I} y^3',
+      operation: 'mech_airy',
+      params: { coords: 'x, y' },
+      assignTo: 'sigma_beam'
+    },
+    {
+      id: 'cell_sc_2',
+      mode: 'code',
+      title: '2. Cauchy Boundary Equilibrium & Bending Moment Verification',
+      code: `# Given Airy stress tensor sigma_beam, verify stress components and bending moment
+P_load, I_val, h_beam, L_beam = sp.symbols('P I h L', positive=True, real=True)
+s_xx = -(P_load / I_val) * x * y
+s_yy = sp.Integer(0)
+tau_xy = (P_load / (2 * I_val)) * ( (h_beam/2)**2 - y**2 )
+
+# Equilibrium in x: d(s_xx)/dx + d(tau_xy)/dy = 0
+equil_x = sp.simplify(sp.diff(s_xx, x) + sp.diff(tau_xy, y))
+print("Equilibrium d(sigma_xx)/dx + d(tau_xy)/dy:", equil_x)
+
+# Integrated shear force along any cross-section x = const
+V_res = sp.integrate(tau_xy, (y, -h_beam/2, h_beam/2))
+print("Integrated Cross-Section Shear Force V(x):", sp.simplify(V_res.subs(I_val, h_beam**3 / 12)))`
+    },
+    {
+      id: 'cell_sc_3',
+      mode: 'visual',
+      title: "3. Interactive Mohr's Circle at Clamped Root Surface (x=0, y=h/2)",
+      latex: r'[-120, 0, 45]',
+      operation: 'mech_mohr',
+      params: {}
+    }
+  ],
+
+  // ==========================================================================
+  // SUITE 2: SOLID MECHANICS - LAME THICK CYLINDER & VON MISES YIELD
+  // ==========================================================================
+  suite_solid_pressurized_cylinder: [
+    {
+      id: 'cell_sp_1',
+      mode: 'code',
+      title: '1. Polar Navier Equation & Displacement Solution u(r)',
+      code: `# Polar radial equilibrium: d^2 u / dr^2 + (1/r) du/dr - u/r^2 = 0
+r_var = sp.Symbol('r', positive=True)
+u_r = sp.Function('u')(r_var)
+navier_eq = sp.Eq(sp.diff(u_r, r_var, 2) + (1/r_var)*sp.diff(u_r, r_var) - u_r/(r_var**2), 0)
+gen_sol = sp.dsolve(navier_eq, u_r)
+print("General Polar Displacement Solution:")
+sp.pprint(gen_sol)`
+    },
+    {
+      id: 'cell_sp_2',
+      mode: 'code',
+      title: '2. Lamé Equations for Pressurized Cylinder: sigma_r(r) and sigma_theta(r)',
+      code: `# Pressurized thick tube: Inner radius a, Outer radius b, Internal pressure Pi
+a_rad, b_rad, P_i = sp.symbols('a b P_i', positive=True)
+# Lamé solutions for radial and hoop stresses
+sig_r = (P_i * a_rad**2 / (b_rad**2 - a_rad**2)) * (1 - b_rad**2 / r_var**2)
+sig_th = (P_i * a_rad**2 / (b_rad**2 - a_rad**2)) * (1 + b_rad**2 / r_var**2)
+
+print("Radial Stress sigma_r(r):")
+sp.pprint(sig_r)
+print("\\nHoop Stress sigma_theta(r):")
+sp.pprint(sig_th)`
+    },
+    {
+      id: 'cell_sp_3',
+      mode: 'visual',
+      title: '3. Stress Invariants and von Mises Equivalent Yield Stress at Inner Bore (r = a)',
+      latex: r'\begin{bmatrix} -80 & 0 & 0 \\ 0 & 140 & 0 \\ 0 & 0 & 0 \end{bmatrix}',
+      operation: 'mech_invariants',
+      params: {},
+      assignTo: 'bore_yield'
+    }
+  ],
+
+  // ==========================================================================
+  // SUITE 3: SOLID MECHANICS - 3D YIELD CRITERIA & INVARIANTS (I1, J2)
+  // ==========================================================================
+  suite_solid_yield_criterion: [
+    {
+      id: 'cell_sy_1',
+      mode: 'visual',
+      title: '1. Triaxial General Stress Tensor: Invariants, Deviatoric S, and von Mises',
+      latex: r'\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}',
+      operation: 'mech_invariants',
+      params: {},
+      assignTo: 'triaxial_stress'
+    },
+    {
+      id: 'cell_sy_2',
+      mode: 'visual',
+      title: '2. Characteristic Polynomial p(sigma) for Principal Stresses',
+      latex: r'\begin{bmatrix} 120 & -40 & 20 \\ -40 & 80 & 10 \\ 20 & 10 & -30 \end{bmatrix}',
+      operation: 'mat_charpoly',
+      params: { var: 'sigma' }
+    },
+    {
+      id: 'cell_sy_3',
+      mode: 'code',
+      title: '3. Quantitative Yield Assessment: von Mises vs Tresca Max Shear',
+      code: `# Given numerical stress matrix, compute exact eigenvalues and failure criteria
+sig_mat = sp.Matrix([
+    [120, -40,  20],
+    [-40,  80,  10],
+    [ 20,  10, -30]
+])
+# Eigenvalues (Principal stresses)
+p_stresses = sorted([float(sp.N(v)) for v in sig_mat.eigenvals().keys()], reverse=True)
+s1, s2, s3 = p_stresses[0], p_stresses[1], p_stresses[2]
+
+tau_tresca = 0.5 * (s1 - s3)
+sig_von_mises = math.sqrt(0.5 * ((s1 - s2)**2 + (s2 - s3)**2 + (s3 - s1)**2))
+
+print(f"Principal Stresses: sigma_1 = {s1:.2f} MPa, sigma_2 = {s2:.2f} MPa, sigma_3 = {s3:.2f} MPa")
+print(f"Tresca Maximum Shear Stress: tau_max = {tau_tresca:.2f} MPa")
+print(f"von Mises Equivalent Stress: sigma_vm = {sig_von_mises:.2f} MPa")`
+    }
+  ],
+
+  // ==========================================================================
+  // SUITE 4: ELECTRODYNAMICS - RADIATING ELECTRIC & MAGNETIC DIPOLES
+  // ==========================================================================
+  suite_em_dipole: [
+    {
+      id: 'cell_ed_1',
+      mode: 'visual',
+      title: '1. Electric Dipole Potential V(r, theta) in Spherical Coordinates',
+      latex: r'\frac{p \cos(\theta)}{4 \pi \varepsilon_0 r^2}',
+      operation: 'curv_grad',
+      params: { system: 'spherical', coords: 'r, theta, phi' },
+      assignTo: 'grad_V_sph'
+    },
+    {
+      id: 'cell_ed_2',
+      mode: 'code',
+      title: '2. Electric Field Components and Divergence Verification (r > 0)',
+      code: `# Electric field in spherical coordinates: E = -grad(V)
+p_dipole, eps0 = sp.symbols('p epsilon_0', positive=True)
+E_r = (2 * p_dipole * sp.cos(theta)) / (4 * sp.pi * eps0 * r**3)
+E_th = (p_dipole * sp.sin(theta)) / (4 * sp.pi * eps0 * r**3)
+E_phi = sp.Integer(0)
+
+# Spherical divergence: (1/r^2)*d(r^2 E_r)/dr + (1/(r sin theta))*d(sin theta E_th)/dtheta
+div_E = (1 / r**2) * sp.diff(r**2 * E_r, r) + (1 / (r * sp.sin(theta))) * sp.diff(sp.sin(theta) * E_th, theta)
+print("Spherical Divergence div(E) outside origin:")
+sp.pprint(sp.simplify(div_E))`
+    },
+    {
+      id: 'cell_ed_3',
+      mode: 'visual',
+      title: '3. 2D Electric Dipole Vector Field Quiver Plot in Cartesian Plane',
+      latex: r'\left[ \frac{3 x y}{(x^2 + y^2 + 0.1)^{5/2}}, \frac{2 y^2 - x^2}{(x^2 + y^2 + 0.1)^{5/2}} \right]',
+      operation: 'em_field_plot',
+      params: { xmin: '-3', xmax: '3', ymin: '-3', ymax: '3', grid: 16 }
+    }
+  ],
+
+  // ==========================================================================
+  // SUITE 5: ELECTRODYNAMICS - EM PLANE WAVE, LORENZ GAUGE & POYNTING FLUX
+  // ==========================================================================
+  suite_em_maxwell_wave: [
+    {
+      id: 'cell_ew_1',
+      mode: 'visual',
+      title: '1. Verification of all 4 Maxwell Equations for Propagating TEM Plane Wave',
+      latex: r'\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]',
+      operation: 'em_maxwell_check',
+      params: { coords: 'x, y, z', time: 't', rho: '0', J: '[0, 0, 0]' }
+    },
+    {
+      id: 'cell_ew_2',
+      mode: 'visual',
+      title: '2. Vector Potential A and Lorenz Gauge Condition Check',
+      latex: r'\left[ -\frac{E_0}{\omega} \sin(k z - \omega t), 0, 0 \right]',
+      operation: 'em_gauge',
+      params: { V: '0', coords: 'x, y, z', time: 't', c: 'c' }
+    },
+    {
+      id: 'cell_ew_3',
+      mode: 'visual',
+      title: '3. Poynting Energy Flux Vector S and Electromagnetic Energy Density u',
+      latex: r'\left[ [E_0 \cos(k z - \omega t), 0, 0], [0, \frac{E_0}{c} \cos(k z - \omega t), 0] \right]',
+      operation: 'em_poynting',
+      params: {},
+      assignTo: 'S_wave'
+    }
+  ],
+
+  // ==========================================================================
+  // SUITE 6: ELECTRODYNAMICS - WAVEGUIDE TE10 MODES & MAXWELL STRESS
+  // ==========================================================================
+  suite_em_waveguide: [
+    {
+      id: 'cell_wg_1',
+      mode: 'code',
+      title: '1. Rectangular Waveguide TE10 Mode Dispersion and Cutoff Frequency',
+      code: `# Rectangular waveguide dimensions: width a, height b
+a_dim, b_dim, omega_freq, c_spd = sp.symbols('a b omega c', positive=True)
+m_mode, n_mode = 1, 0  # TE10 mode
+
+# Cutoff frequency omega_c
+omega_cutoff = c_spd * sp.pi * sp.sqrt((m_mode/a_dim)**2 + (n_mode/b_dim)**2)
+# Propagation constant beta
+beta_prop = sp.sqrt((omega_freq/c_spd)**2 - (sp.pi/a_dim)**2)
+
+print("TE10 Mode Cutoff Angular Frequency omega_c:")
+sp.pprint(omega_cutoff)
+print("\\nPropagation Constant beta(omega):")
+sp.pprint(beta_prop)`
+    },
+    {
+      id: 'cell_wg_2',
+      mode: 'visual',
+      title: '2. Maxwell Stress Tensor T_ij on Waveguide Boundary Wall',
+      latex: r'\left[ [0, E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0], [-\frac{\beta}{\omega} E_0 \sin(\frac{\pi x}{a}) \cos(\omega t - \beta z), 0, \frac{\pi}{\omega a} E_0 \cos(\frac{\pi x}{a}) \sin(\omega t - \beta z)] \right]',
+      operation: 'em_stress_tensor',
+      params: { coords: 'x, y, z' }
+    },
+    {
+      id: 'cell_wg_3',
+      mode: 'visual',
+      title: '3. Waveguide Electric Field Streamlines & Quiver in Cross-Section',
+      latex: r'\left[ 0, \sin(\frac{\pi x}{2}) \cos(z) \right]',
+      operation: 'em_field_plot',
+      params: { xmin: '0', xmax: '2', ymin: '-3', ymax: '3', grid: 15 }
+    }
   ],
 
   // ==========================================================================
@@ -929,8 +1355,8 @@ out_history = {}
 
 # Pre-defined standard physics & engineering coordinates
 x, y, z, t, r, theta, phi = sp.symbols('x y z t r theta phi')
-n, k, m, q, c, g, hbar, omega, zeta, alpha, beta, gamma, delta, epsilon, epsilon_0, lam, mu, rho, sigma, tau, psi, Delta = sp.symbols(
-    'n k m q c g hbar omega zeta alpha beta gamma delta epsilon epsilon_0 lambda mu rho sigma tau psi Delta'
+n, k, m, q, c, g, hbar, omega, zeta, alpha, beta, gamma, delta, epsilon, epsilon_0, lam, mu, rho, sigma, tau, psi, Delta, nu, mu_0, E_mod = sp.symbols(
+    'n k m q c g hbar omega zeta alpha beta gamma delta epsilon epsilon_0 lambda mu rho sigma tau psi Delta nu mu_0 E_mod'
 )
 
 BASE_LOCALS = {
@@ -939,7 +1365,7 @@ BASE_LOCALS = {
     'omega': omega, 'zeta': zeta, 'alpha': alpha, 'beta': beta, 'gamma': gamma,
     'delta': delta, 'epsilon': epsilon, 'varepsilon_0': epsilon_0, 'epsilon_0': epsilon_0,
     'lambda': lam, 'lam': lam, 'mu': mu, 'rho': rho, 'sigma': sigma, 'tau': tau,
-    'psi': psi, 'Delta': Delta,
+    'psi': psi, 'Delta': Delta, 'nu': nu, 'mu_0': mu_0, 'E_mod': E_mod,
     'pi': sp.pi, 'e': sp.E, 'E': sp.E, 'oo': sp.oo, 'infty': sp.oo, 'I': sp.I,
     'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan, 'cot': sp.cot, 'sec': sp.sec, 'csc': sp.csc,
     'asin': sp.asin, 'acos': sp.acos, 'atan': sp.atan,
@@ -951,9 +1377,10 @@ BASE_LOCALS = {
 
 GREEK_MAP = {
     r'\alpha': 'alpha', r'\beta': 'beta', r'\gamma': 'gamma', r'\delta': 'delta',
-    r'\epsilon': 'epsilon', r'\varepsilon_0': 'epsilon_0', r'\varepsilon': 'epsilon',
+    r'\epsilon': 'epsilon', r'\varepsilon_0': 'epsilon_0', r'\epsilon_0': 'epsilon_0', r'\varepsilon': 'epsilon',
     r'\zeta': 'zeta', r'\theta': 'theta', r'\vartheta': 'theta',
-    r'\lambda': 'lambda', r'\mu': 'mu', r'\pi': 'pi', r'\rho': 'rho',
+    r'\lambda': 'lambda', r'\mu_0': 'mu_0', r'\mu': 'mu', r'\nu': 'nu',
+    r'\pi': 'pi', r'\rho': 'rho',
     r'\sigma': 'sigma', r'\tau': 'tau', r'\phi': 'phi', r'\varphi': 'phi',
     r'\psi': 'psi', r'\omega': 'omega', r'\hbar': 'hbar', r'\Delta': 'Delta',
     r'\infty': 'oo'
@@ -1409,6 +1836,314 @@ def _detect_and_bind_free_params(expr_list, bound_syms, param_overrides=None):
     bound_exprs = [ex.subs(subs_map) if hasattr(ex, 'subs') else ex for ex in expr_list]
     return bound_exprs, slider_meta
 
+# ---------------------------------------------------------------------------
+# Suites: Curvilinear Differential Operators & Tensor Analysis
+# ---------------------------------------------------------------------------
+def _get_curvilinear_metric(system, c_syms):
+    if system == 'cylindrical':
+        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
+        return [u1, u2, u3], [sp.Integer(1), u1, sp.Integer(1)]
+    elif system == 'spherical':
+        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
+        return [u1, u2, u3], [sp.Integer(1), u1, u1 * sp.sin(u2)]
+    else:
+        # Cartesian
+        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
+        return [u1, u2, u3], [sp.Integer(1), sp.Integer(1), sp.Integer(1)]
+
+def _curv_grad(phi_expr, system, c_syms):
+    coords, h = _get_curvilinear_metric(system, c_syms)
+    return sp.Matrix([sp.simplify(sp.diff(phi_expr, coords[i]) / h[i]) for i in range(3)])
+
+def _curv_div(F_vec, system, c_syms):
+    coords, h = _get_curvilinear_metric(system, c_syms)
+    h_prod = sp.simplify(h[0] * h[1] * h[2])
+    t1 = sp.diff(h[1] * h[2] * F_vec[0], coords[0])
+    t2 = sp.diff(h[0] * h[2] * F_vec[1], coords[1])
+    t3 = sp.diff(h[0] * h[1] * F_vec[2], coords[2])
+    return sp.simplify((t1 + t2 + t3) / h_prod)
+
+def _curv_curl(F_vec, system, c_syms):
+    coords, h = _get_curvilinear_metric(system, c_syms)
+    c1 = sp.simplify((sp.diff(h[2] * F_vec[2], coords[1]) - sp.diff(h[1] * F_vec[1], coords[2])) / (h[1] * h[2]))
+    c2 = sp.simplify((sp.diff(h[0] * F_vec[0], coords[2]) - sp.diff(h[2] * F_vec[2], coords[0])) / (h[0] * h[2]))
+    c3 = sp.simplify((sp.diff(h[1] * F_vec[1], coords[0]) - sp.diff(h[0] * F_vec[0], coords[1])) / (h[0] * h[1]))
+    return sp.Matrix([c1, c2, c3])
+
+def _curv_laplacian(phi_expr, system, c_syms):
+    coords, h = _get_curvilinear_metric(system, c_syms)
+    h_prod = sp.simplify(h[0] * h[1] * h[2])
+    t1 = sp.diff((h[1] * h[2] / h[0]) * sp.diff(phi_expr, coords[0]), coords[0])
+    t2 = sp.diff((h[0] * h[2] / h[1]) * sp.diff(phi_expr, coords[1]), coords[1])
+    t3 = sp.diff((h[0] * h[1] / h[2]) * sp.diff(phi_expr, coords[2]), coords[2])
+    return sp.simplify((t1 + t2 + t3) / h_prod)
+
+def _mech_strain(expr, c_syms):
+    dim = len(c_syms)
+    if not isinstance(expr, sp.MatrixBase):
+        if isinstance(expr, (list, tuple)):
+            expr = sp.Matrix(expr)
+        else:
+            raise ValueError(f"Displacement must be a {dim}-element vector [u, v] or [u, v, w].")
+    if len(expr) != dim:
+        dim = len(expr)
+        c_syms = [sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z')][:dim]
+    eps = sp.zeros(dim, dim)
+    for i in range(dim):
+        for j in range(dim):
+            dij = sp.diff(expr[i], c_syms[j])
+            dji = sp.diff(expr[j], c_syms[i])
+            eps[i, j] = sp.simplify(sp.Rational(1, 2) * (dij + dji))
+    return eps
+
+def _mech_compat(eps, c_syms):
+    dim = eps.rows if isinstance(eps, sp.MatrixBase) else 2
+    if dim == 2:
+        x_s, y_s = c_syms[0], c_syms[1]
+        e_xx, e_yy, e_xy = eps[0, 0], eps[1, 1], eps[0, 1]
+        res = sp.simplify(sp.diff(e_xx, y_s, 2) + sp.diff(e_yy, x_s, 2) - 2 * sp.diff(e_xy, x_s, y_s))
+        return {'dim': 2, 'satisfied': res == 0, 'residual': res}
+    else:
+        # 3D
+        x_s, y_s, z_s = c_syms[0], c_syms[1], c_syms[2]
+        s11 = sp.simplify(sp.diff(eps[1, 1], z_s, 2) + sp.diff(eps[2, 2], y_s, 2) - 2 * sp.diff(eps[1, 2], y_s, z_s))
+        s22 = sp.simplify(sp.diff(eps[2, 2], x_s, 2) + sp.diff(eps[0, 0], z_s, 2) - 2 * sp.diff(eps[2, 0], z_s, x_s))
+        s33 = sp.simplify(sp.diff(eps[0, 0], y_s, 2) + sp.diff(eps[1, 1], x_s, 2) - 2 * sp.diff(eps[0, 1], x_s, y_s))
+        s12 = sp.simplify(sp.diff(-sp.diff(eps[0, 1], z_s) + sp.diff(eps[1, 2], x_s) + sp.diff(eps[2, 0], y_s), z_s) - sp.diff(eps[2, 2], x_s, y_s))
+        s23 = sp.simplify(sp.diff(-sp.diff(eps[1, 2], x_s) + sp.diff(eps[2, 0], y_s) + sp.diff(eps[0, 1], z_s), x_s) - sp.diff(eps[0, 0], y_s, z_s))
+        s31 = sp.simplify(sp.diff(-sp.diff(eps[2, 0], y_s) + sp.diff(eps[0, 1], z_s) + sp.diff(eps[1, 2], x_s), y_s) - sp.diff(eps[1, 1], z_s, x_s))
+        residuals = [s11, s22, s33, s12, s23, s31]
+        satisfied = all(r == 0 for r in residuals)
+        return {'dim': 3, 'satisfied': satisfied, 'residuals': residuals}
+
+def _mech_hooke(expr, state, direction, E_sym, nu_sym):
+    if not isinstance(expr, sp.MatrixBase):
+        raise ValueError("Input must be a 2x2 or 3x3 strain/stress Matrix.")
+    dim = expr.rows
+    if state == 'plane_stress':
+        if direction == 'strain_to_stress':
+            e11, e22, e12 = expr[0, 0], expr[1, 1], expr[0, 1]
+            factor = E_sym / (1 - nu_sym**2)
+            s11 = sp.simplify(factor * (e11 + nu_sym * e22))
+            s22 = sp.simplify(factor * (e22 + nu_sym * e11))
+            s12 = sp.simplify((E_sym / (1 + nu_sym)) * e12)
+            return sp.Matrix([[s11, s12], [s12, s22]])
+        else:
+            s11, s22, s12 = expr[0, 0], expr[1, 1], expr[0, 1]
+            e11 = sp.simplify((s11 - nu_sym * s22) / E_sym)
+            e22 = sp.simplify((s22 - nu_sym * s11) / E_sym)
+            e12 = sp.simplify(((1 + nu_sym) / E_sym) * s12)
+            return sp.Matrix([[e11, e12], [e12, e22]])
+    elif state == 'plane_strain':
+        if direction == 'strain_to_stress':
+            e11, e22, e12 = expr[0, 0], expr[1, 1], expr[0, 1]
+            factor = E_sym / ((1 + nu_sym) * (1 - 2 * nu_sym))
+            s11 = sp.simplify(factor * ((1 - nu_sym) * e11 + nu_sym * e22))
+            s22 = sp.simplify(factor * ((1 - nu_sym) * e22 + nu_sym * e11))
+            s12 = sp.simplify((E_sym / (1 + nu_sym)) * e12)
+            s33 = sp.simplify(nu_sym * (s11 + s22))
+            return sp.Matrix([[s11, s12, 0], [s12, s22, 0], [0, 0, s33]])
+        else:
+            s11, s22, s12 = expr[0, 0], expr[1, 1], expr[0, 1]
+            factor = (1 + nu_sym) / E_sym
+            e11 = sp.simplify(factor * ((1 - nu_sym) * s11 - nu_sym * s22))
+            e22 = sp.simplify(factor * ((1 - nu_sym) * s22 - nu_sym * s11))
+            e12 = sp.simplify(factor * s12)
+            return sp.Matrix([[e11, e12], [e12, e22]])
+    else:
+        # 3D isotropic
+        lam_val = (E_sym * nu_sym) / ((1 + nu_sym) * (1 - 2 * nu_sym))
+        mu_val = E_sym / (2 * (1 + nu_sym))
+        if direction == 'strain_to_stress':
+            tr_eps = sp.simplify(expr[0, 0] + expr[1, 1] + expr[2, 2])
+            sig = sp.zeros(3, 3)
+            for i in range(3):
+                for j in range(3):
+                    kronecker = 1 if i == j else 0
+                    sig[i, j] = sp.simplify(2 * mu_val * expr[i, j] + lam_val * tr_eps * kronecker)
+            return sig
+        else:
+            tr_sig = sp.simplify(expr[0, 0] + expr[1, 1] + expr[2, 2])
+            eps = sp.zeros(3, 3)
+            for i in range(3):
+                for j in range(3):
+                    kronecker = 1 if i == j else 0
+                    eps[i, j] = sp.simplify((expr[i, j] - (nu_sym / (1 + nu_sym)) * tr_sig * kronecker) / (2 * mu_val))
+            return eps
+
+def _mech_invariants(expr):
+    if not isinstance(expr, sp.MatrixBase):
+        if isinstance(expr, (list, tuple)) and len(expr) in (3, 6):
+            if len(expr) == 3:
+                expr = sp.Matrix([[expr[0], expr[2], 0], [expr[2], expr[1], 0], [0, 0, 0]])
+        else:
+            raise ValueError("Input must be a 2x2 or 3x3 stress Matrix or [sx, sy, txy].")
+    if expr.rows == 2:
+        expr = sp.Matrix([[expr[0, 0], expr[0, 1], 0], [expr[1, 0], expr[1, 1], 0], [0, 0, 0]])
+    I1 = sp.simplify(expr.trace())
+    sig_m = sp.simplify(I1 / 3)
+    S = sp.simplify(expr - sig_m * sp.eye(3))
+    I2 = sp.simplify(sp.Rational(1, 2) * (I1**2 - (expr**2).trace()))
+    I3 = sp.simplify(expr.det())
+    J2 = sp.simplify(sp.Rational(1, 2) * (S**2).trace())
+    J3 = sp.simplify(S.det())
+    sigma_vm = sp.simplify(sp.sqrt(3 * J2))
+    return {
+        'sigma': expr,
+        'I1': I1,
+        'I2': I2,
+        'I3': I3,
+        'S': S,
+        'J2': J2,
+        'J3': J3,
+        'sigma_vm': sigma_vm
+    }
+
+def _mech_airy(phi_expr, c_syms):
+    x_s, y_s = c_syms[0], c_syms[1]
+    sig_xx = sp.simplify(sp.diff(phi_expr, y_s, 2))
+    sig_yy = sp.simplify(sp.diff(phi_expr, x_s, 2))
+    tau_xy = sp.simplify(-sp.diff(phi_expr, x_s, y_s))
+    biharmonic = sp.simplify(sp.diff(phi_expr, x_s, 4) + 2 * sp.diff(phi_expr, x_s, 2, y_s, 2) + sp.diff(phi_expr, y_s, 4))
+    sig_mat = sp.Matrix([[sig_xx, tau_xy], [tau_xy, sig_yy]])
+    return {
+        'biharmonic': biharmonic,
+        'is_biharmonic': biharmonic == 0,
+        'stress_matrix': sig_mat
+    }
+
+def _mech_mohr(expr):
+    if isinstance(expr, sp.MatrixBase):
+        sig_x, sig_y, tau_xy = expr[0, 0], expr[1, 1], expr[0, 1]
+    elif isinstance(expr, (list, tuple)) and len(expr) >= 3:
+        sig_x, sig_y, tau_xy = expr[0], expr[1], expr[2]
+    else:
+        raise ValueError("Mohr's circle requires [sigma_x, sigma_y, tau_xy] or a 2x2 stress matrix.")
+    sig_avg = sp.simplify(sp.Rational(1, 2) * (sig_x + sig_y))
+    R = sp.simplify(sp.sqrt(sp.Rational(1, 4) * (sig_x - sig_y)**2 + tau_xy**2))
+    sig_1 = sp.simplify(sig_avg + R)
+    sig_2 = sp.simplify(sig_avg - R)
+    tau_max = R
+    theta_p = sp.simplify(sp.Rational(1, 2) * sp.atan2(2 * tau_xy, sig_x - sig_y))
+    return {
+        'sig_x': sig_x, 'sig_y': sig_y, 'tau_xy': tau_xy,
+        'sig_avg': sig_avg, 'R': R,
+        'sig_1': sig_1, 'sig_2': sig_2,
+        'tau_max': tau_max, 'theta_p': theta_p
+    }
+
+def _em_maxwell_check(fields_expr, c_syms, t_sym, rho_expr, J_expr):
+    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
+        E_vec = sp.Matrix(fields_expr.row(0))
+        B_vec = sp.Matrix(fields_expr.row(1))
+    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
+        E_vec = sp.Matrix(fields_expr[0])
+        B_vec = sp.Matrix(fields_expr[1])
+    else:
+        raise ValueError("Candidate EM fields must be provided as pair [E, B] of 3D vectors.")
+    eps_0 = sp.Symbol('epsilon_0', positive=True)
+    mu_0_sym = sp.Symbol('mu_0', positive=True)
+
+    div_E = sum(sp.diff(E_vec[i], c_syms[i]) for i in range(3))
+    div_B = sum(sp.diff(B_vec[i], c_syms[i]) for i in range(3))
+
+    curl_E = sp.Matrix([
+        sp.diff(E_vec[2], c_syms[1]) - sp.diff(E_vec[1], c_syms[2]),
+        sp.diff(E_vec[0], c_syms[2]) - sp.diff(E_vec[2], c_syms[0]),
+        sp.diff(E_vec[1], c_syms[0]) - sp.diff(E_vec[0], c_syms[1])
+    ])
+    curl_B = sp.Matrix([
+        sp.diff(B_vec[2], c_syms[1]) - sp.diff(B_vec[1], c_syms[2]),
+        sp.diff(B_vec[0], c_syms[2]) - sp.diff(B_vec[2], c_syms[0]),
+        sp.diff(B_vec[1], c_syms[0]) - sp.diff(B_vec[0], c_syms[1])
+    ])
+
+    dt_B = sp.Matrix([sp.diff(B_vec[i], t_sym) for i in range(3)])
+    dt_E = sp.Matrix([sp.diff(E_vec[i], t_sym) for i in range(3)])
+
+    res_gauss_E = sp.simplify(div_E - rho_expr / eps_0)
+    res_gauss_B = sp.simplify(div_B)
+    res_faraday = sp.simplify(curl_E + dt_B)
+    res_ampere = sp.simplify(curl_B - mu_0_sym * eps_0 * dt_E - mu_0_sym * sp.Matrix(J_expr))
+
+    return {
+        'gauss_E': {'res': res_gauss_E, 'ok': res_gauss_E == 0},
+        'gauss_B': {'res': res_gauss_B, 'ok': res_gauss_B == 0},
+        'faraday': {'res': res_faraday, 'ok': all(r == 0 for r in res_faraday)},
+        'ampere': {'res': res_ampere, 'ok': all(r == 0 for r in res_ampere)}
+    }
+
+def _em_potentials(A_vec, V_expr, c_syms, t_sym):
+    if not isinstance(A_vec, sp.MatrixBase):
+        A_vec = sp.Matrix(A_vec)
+    B_vec = sp.Matrix([
+        sp.diff(A_vec[2], c_syms[1]) - sp.diff(A_vec[1], c_syms[2]),
+        sp.diff(A_vec[0], c_syms[2]) - sp.diff(A_vec[2], c_syms[0]),
+        sp.diff(A_vec[1], c_syms[0]) - sp.diff(A_vec[0], c_syms[1])
+    ])
+    grad_V = sp.Matrix([sp.diff(V_expr, c) for c in c_syms])
+    dt_A = sp.Matrix([sp.diff(A_vec[i], t_sym) for i in range(3)])
+    E_vec = sp.simplify(-grad_V - dt_A)
+    return {'E': E_vec, 'B': sp.simplify(B_vec)}
+
+def _em_gauge(A_vec, V_expr, c_syms, t_sym, c_speed):
+    if not isinstance(A_vec, sp.MatrixBase):
+        A_vec = sp.Matrix(A_vec)
+    div_A = sp.simplify(sum(sp.diff(A_vec[i], c_syms[i]) for i in range(3)))
+    dt_V = sp.diff(V_expr, t_sym)
+    lorenz_res = sp.simplify(div_A + (sp.Integer(1) / (c_speed**2)) * dt_V)
+    coulomb_res = div_A
+    return {
+        'lorenz_ok': lorenz_res == 0,
+        'lorenz_res': lorenz_res,
+        'coulomb_ok': coulomb_res == 0,
+        'coulomb_res': coulomb_res
+    }
+
+def _em_poynting(fields_expr):
+    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
+        E_vec = fields_expr.row(0)
+        B_vec = fields_expr.row(1)
+    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
+        E_vec = fields_expr[0]
+        B_vec = fields_expr[1]
+    else:
+        raise ValueError("Poynting computation requires pair [E, B] of 3D vectors.")
+    mu_0_sym = sp.Symbol('mu_0', positive=True)
+    eps_0 = sp.Symbol('epsilon_0', positive=True)
+    sx = (E_vec[1] * B_vec[2] - E_vec[2] * B_vec[1]) / mu_0_sym
+    sy = (E_vec[2] * B_vec[0] - E_vec[0] * B_vec[2]) / mu_0_sym
+    sz = (E_vec[0] * B_vec[1] - E_vec[1] * B_vec[0]) / mu_0_sym
+    S_vec = sp.Matrix([sp.simplify(sx), sp.simplify(sy), sp.simplify(sz)])
+    E_sq = sum(E_vec[i]**2 for i in range(3))
+    B_sq = sum(B_vec[i]**2 for i in range(3))
+    u_dens = sp.simplify(sp.Rational(1, 2) * eps_0 * E_sq + sp.Rational(1, 2) * (sp.Integer(1) / mu_0_sym) * B_sq)
+    g_mom = sp.simplify(eps_0 * mu_0_sym * S_vec)
+    return {'S': S_vec, 'u': u_dens, 'g': g_mom}
+
+def _em_stress_tensor(fields_expr, c_syms):
+    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
+        E_vec = fields_expr.row(0)
+        B_vec = fields_expr.row(1)
+    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
+        E_vec = fields_expr[0]
+        B_vec = fields_expr[1]
+    else:
+        raise ValueError("Maxwell stress tensor requires pair [E, B] of 3D vectors.")
+    eps_0 = sp.Symbol('epsilon_0', positive=True)
+    mu_0_sym = sp.Symbol('mu_0', positive=True)
+    E_sq = sum(E_vec[i]**2 for i in range(3))
+    B_sq = sum(B_vec[i]**2 for i in range(3))
+    T = sp.zeros(3, 3)
+    for i in range(3):
+        for j in range(3):
+            delta_ij = 1 if i == j else 0
+            e_part = eps_0 * (E_vec[i] * E_vec[j] - sp.Rational(1, 2) * delta_ij * E_sq)
+            b_part = (sp.Integer(1) / mu_0_sym) * (B_vec[i] * B_vec[j] - sp.Rational(1, 2) * delta_ij * B_sq)
+            T[i, j] = sp.simplify(e_part + b_part)
+    f_vec = sp.Matrix([sp.simplify(sum(sp.diff(T[i, j], c_syms[j]) for j in range(3))) for i in range(3)])
+    return {'T': T, 'f': f_vec}
+
 def _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx, param_overrides=None):
     transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
 
@@ -1515,12 +2250,12 @@ def _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx, param_over
             'sliderParams': slider_meta
         }, sympy_code_shown
 
-    elif op == 'plot_vector_2d':
-        xmin = float(sp.N(parse_expr(str(params.get('xmin', '-4')), local_dict=loc)))
-        xmax = float(sp.N(parse_expr(str(params.get('xmax', '4')), local_dict=loc)))
-        ymin = float(sp.N(parse_expr(str(params.get('ymin', '-4')), local_dict=loc)))
-        ymax = float(sp.N(parse_expr(str(params.get('ymax', '4')), local_dict=loc)))
-        grid_n = max(6, min(30, int(params.get('grid', 15) or 15)))
+    elif op in ('plot_vector_2d', 'em_field_plot'):
+        xmin = float(sp.N(parse_expr(str(params.get('xmin', '-5' if op == 'em_field_plot' else '-4')), local_dict=loc)))
+        xmax = float(sp.N(parse_expr(str(params.get('xmax', '5' if op == 'em_field_plot' else '4')), local_dict=loc)))
+        ymin = float(sp.N(parse_expr(str(params.get('ymin', '-5' if op == 'em_field_plot' else '-4')), local_dict=loc)))
+        ymax = float(sp.N(parse_expr(str(params.get('ymax', '5' if op == 'em_field_plot' else '4')), local_dict=loc)))
+        grid_n = max(6, min(30, int(params.get('grid', 16 if op == 'em_field_plot' else 15) or 15)))
 
         x_sym = loc.get('x', sp.Symbol('x'))
         y_sym = loc.get('y', sp.Symbol('y'))
@@ -1579,12 +2314,17 @@ def _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx, param_over
             quiver_y.extend([yv, y1, None, hy1, y1, hy2, None])
 
         sympy_code_shown = f"Fx, Fy = sp.lambdify((x, y), {repr(fx_expr)}, 'math'), sp.lambdify((x, y), {repr(fy_expr)}, 'math')"
+        title_str = f"2D Vector Field Quiver: {vec_label}"
+        if op == 'em_field_plot':
+            div_val = sp.simplify(sp.diff(fx_expr, x_sym) + sp.diff(fy_expr, y_sym))
+            curl_val = sp.simplify(sp.diff(fy_expr, x_sym) - sp.diff(fx_expr, y_sym))
+            title_str = f"EM Field Quiver: {vec_label} | ∇·F = {sp.latex(div_val)}, (∇×F)_z = {sp.latex(curl_val)}"
         return {
             'type': 'vector_2d',
             'quiverX': quiver_x,
             'quiverY': quiver_y,
             'xmin': xmin, 'xmax': xmax, 'ymin': ymin, 'ymax': ymax,
-            'title': f"2D Vector Field Quiver: {vec_label}",
+            'title': title_str,
             'sliderParams': slider_meta
         }, sympy_code_shown
 
@@ -1791,6 +2531,90 @@ def convert_visual_to_sympy_code(payload_json):
         v = params.get('var', 'x').strip() or 'x'
         body.append("expr = " + pc(cleaned))
         body.append(lhs + " = sp.apart(expr, " + pc(v) + ")")
+    elif op in ('curv_grad', 'vec_grad'):
+        sys_val = params.get('system', 'cartesian')
+        c_raw = params.get('coords', 'x, y, z')
+        body.append(f"# Curvilinear Gradient in {sys_val} coordinates ({c_raw})")
+        body.append("phi = " + pc(cleaned))
+        body.append(lhs + f" = _curv_grad(phi, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op in ('curv_div', 'vec_div'):
+        sys_val = params.get('system', 'cartesian')
+        c_raw = params.get('coords', 'x, y, z')
+        body.append(f"# Curvilinear Divergence in {sys_val} coordinates ({c_raw})")
+        body.append("F = " + pc(cleaned))
+        body.append(lhs + f" = _curv_div(F, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op in ('curv_curl', 'vec_curl'):
+        sys_val = params.get('system', 'cartesian')
+        c_raw = params.get('coords', 'x, y, z')
+        body.append(f"# Curvilinear Curl in {sys_val} coordinates ({c_raw})")
+        body.append("F = " + pc(cleaned))
+        body.append(lhs + f" = _curv_curl(F, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op in ('curv_laplacian', 'vec_laplacian'):
+        sys_val = params.get('system', 'cartesian')
+        c_raw = params.get('coords', 'x, y, z')
+        body.append(f"# Curvilinear Laplacian in {sys_val} coordinates ({c_raw})")
+        body.append("phi = " + pc(cleaned))
+        body.append(lhs + f" = _curv_laplacian(phi, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op == 'mech_strain':
+        c_raw = params.get('coords', 'x, y, z')
+        body.append(f"# Small-strain tensor derivation from displacement u({c_raw})")
+        body.append("u = " + pc(cleaned))
+        body.append(lhs + f" = _mech_strain(u, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op == 'mech_compat':
+        c_raw = params.get('coords', 'x, y, z')
+        body.append("# Saint-Venant strain compatibility test: inc(eps) = 0")
+        body.append("eps = " + pc(cleaned))
+        body.append(lhs + f" = _mech_compat(eps, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
+    elif op == 'mech_hooke':
+        st = params.get('state', 'plane_stress')
+        dr = params.get('direction', 'strain_to_stress')
+        body.append(f"# Constitutive Hooke's Law: {st} ({dr})")
+        body.append("tensor_in = " + pc(cleaned))
+        body.append(lhs + f" = _mech_hooke(tensor_in, state='{st}', direction='{dr}', E_sym=sp.Symbol('{params.get('E', 'E')}'), nu_sym=sp.Symbol('{params.get('nu', 'nu')}'))")
+    elif op == 'mech_invariants':
+        body.append("# Stress Invariants, Deviatoric Tensor & von Mises yield stress")
+        body.append("sig = " + pc(cleaned))
+        body.append(lhs + " = _mech_invariants(sig)['sigma_vm']")
+    elif op == 'mech_airy':
+        c_raw = params.get('coords', 'x, y')
+        body.append("# Airy Stress Function: Biharmonic check & Cauchy stress recovery")
+        body.append("phi = " + pc(cleaned))
+        body.append(lhs + f" = _mech_airy(phi, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])['stress_matrix']")
+    elif op == 'mech_mohr':
+        body.append("# Mohr's Circle Principal Stresses (sigma_1, sigma_2, tau_max)")
+        body.append("stress_input = " + pc(cleaned))
+        body.append("mohr_data = _mech_mohr(stress_input)")
+        body.append(lhs + " = sp.Matrix([mohr_data['sig_1'], mohr_data['sig_2'], mohr_data['tau_max']])")
+    elif op == 'em_maxwell_check':
+        c_raw = params.get('coords', 'x, y, z')
+        t_nm = params.get('time', 't')
+        body.append(f"# Maxwell's Equations Verifier across coords ({c_raw}) and time {t_nm}")
+        body.append("fields = " + pc(cleaned))
+        body.append(lhs + f" = _em_maxwell_check(fields, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'), rho_expr=sp.sympify({repr(params.get('rho', '0'))}), J_expr=sp.sympify({repr(params.get('J', '[0, 0, 0]'))}))")
+    elif op == 'em_potentials':
+        c_raw = params.get('coords', 'x, y, z')
+        t_nm = params.get('time', 't')
+        body.append("# Electromagnetic Fields derived from Vector Potential A and Scalar Potential V")
+        body.append("A = " + pc(cleaned))
+        body.append("V = " + p_latex(params.get('V', '0')))
+        body.append(lhs + f" = _em_potentials(A, V, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'))")
+    elif op == 'em_gauge':
+        c_raw = params.get('coords', 'x, y, z')
+        t_nm = params.get('time', 't')
+        c_sp = params.get('c', 'c')
+        body.append("# Lorenz & Coulomb gauge condition verification")
+        body.append("A = " + pc(cleaned))
+        body.append("V = " + p_latex(params.get('V', '0')))
+        body.append(lhs + f" = _em_gauge(A, V, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'), sp.Symbol('{c_sp}'))")
+    elif op == 'em_poynting':
+        body.append("# Poynting Energy Flux S = (1/mu_0)(E x B)")
+        body.append("fields = " + pc(cleaned))
+        body.append(lhs + " = _em_poynting(fields)['S']")
+    elif op == 'em_stress_tensor':
+        c_raw = params.get('coords', 'x, y, z')
+        body.append("# Maxwell Stress Tensor T_ij and Force Density")
+        body.append("fields = " + pc(cleaned))
+        body.append(lhs + f" = _em_stress_tensor(fields, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])['T']")
     else:
         body.append("expr = " + pc(cleaned))
         body.append(lhs + " = expr")
@@ -2143,6 +2967,36 @@ def convert_code_to_visual(code_str):
             if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
                 p['var'] = node.args[1].id
             return 'solve', node.args[0], p
+        elif fn_name in ('_curv_grad', 'grad') and len(node.args) >= 1:
+            return 'curv_grad', node.args[0], {}
+        elif fn_name in ('_curv_div', 'div') and len(node.args) >= 1:
+            return 'curv_div', node.args[0], {}
+        elif fn_name in ('_curv_curl', 'curl') and len(node.args) >= 1:
+            return 'curv_curl', node.args[0], {}
+        elif fn_name in ('_curv_laplacian', 'laplacian') and len(node.args) >= 1:
+            return 'curv_laplacian', node.args[0], {}
+        elif fn_name in ('_mech_strain', 'mech_strain') and len(node.args) >= 1:
+            return 'mech_strain', node.args[0], {}
+        elif fn_name in ('_mech_compat', 'mech_compat') and len(node.args) >= 1:
+            return 'mech_compat', node.args[0], {}
+        elif fn_name in ('_mech_hooke', 'mech_hooke') and len(node.args) >= 1:
+            return 'mech_hooke', node.args[0], {}
+        elif fn_name in ('_mech_invariants', 'mech_invariants') and len(node.args) >= 1:
+            return 'mech_invariants', node.args[0], {}
+        elif fn_name in ('_mech_airy', 'mech_airy') and len(node.args) >= 1:
+            return 'mech_airy', node.args[0], {}
+        elif fn_name in ('_mech_mohr', 'mech_mohr') and len(node.args) >= 1:
+            return 'mech_mohr', node.args[0], {}
+        elif fn_name in ('_em_maxwell_check', 'em_maxwell_check') and len(node.args) >= 1:
+            return 'em_maxwell_check', node.args[0], {}
+        elif fn_name in ('_em_potentials', 'em_potentials') and len(node.args) >= 1:
+            return 'em_potentials', node.args[0], {}
+        elif fn_name in ('_em_gauge', 'em_gauge') and len(node.args) >= 1:
+            return 'em_gauge', node.args[0], {}
+        elif fn_name in ('_em_poynting', 'em_poynting') and len(node.args) >= 1:
+            return 'em_poynting', node.args[0], {}
+        elif fn_name in ('_em_stress_tensor', 'em_stress_tensor') and len(node.args) >= 1:
+            return 'em_stress_tensor', node.args[0], {}
         return None, None, {}
 
     last_assign = None
@@ -2509,7 +3363,7 @@ def execute_notebook_cell(payload_json):
             result_obj = sp.solve(eq_objs, var_syms, dict=True)
             sympy_code_shown = f"sp.solve({repr(eq_objs)}, {repr(var_syms)}, dict=True)"
 
-        elif op in ('plot_2d', 'plot_parametric', 'plot_3d', 'plot_vector_2d'):
+        elif op in ('plot_2d', 'plot_parametric', 'plot_3d', 'plot_vector_2d', 'em_field_plot'):
             expr, cleaned_str = parse_math_input(raw_latex, latest_idx)
             result_obj = expr.rhs if isinstance(expr, sp.Equality) else expr
             plot_data, sympy_code_shown = _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx)
@@ -2688,28 +3542,337 @@ def execute_notebook_cell(payload_json):
                     'session': serialize_session()
                 })
 
-            elif op in ('vec_grad', 'vec_div', 'vec_curl', 'vec_laplacian'):
+            elif op in ('curv_grad', 'curv_div', 'curv_curl', 'curv_laplacian', 'vec_grad', 'vec_div', 'vec_curl', 'vec_laplacian'):
+                system = params.get('system', 'cartesian')
+                coords_raw = params.get('coords', 'x, y, z' if system == 'cartesian' else ('r, theta, z' if system == 'cylindrical' else 'r, theta, phi'))
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                while len(c_syms) < 3:
+                    c_syms.append(sp.Symbol('z'))
+                if op in ('curv_grad', 'vec_grad'):
+                    result_obj = _curv_grad(expr, system, c_syms)
+                    sympy_code_shown = f"grad({repr(expr)}, system='{system}', coords={repr(c_syms)})"
+                elif op in ('curv_laplacian', 'vec_laplacian'):
+                    result_obj = _curv_laplacian(expr, system, c_syms)
+                    sympy_code_shown = f"laplacian({repr(expr)}, system='{system}', coords={repr(c_syms)})"
+                elif op in ('curv_div', 'vec_div'):
+                    if not isinstance(expr, sp.MatrixBase):
+                        expr = sp.Matrix(expr)
+                    result_obj = _curv_div(expr, system, c_syms)
+                    sympy_code_shown = f"div({repr(expr)}, system='{system}', coords={repr(c_syms)})"
+                elif op in ('curv_curl', 'vec_curl'):
+                    if not isinstance(expr, sp.MatrixBase):
+                        expr = sp.Matrix(expr)
+                    result_obj = _curv_curl(expr, system, c_syms)
+                    sympy_code_shown = f"curl({repr(expr)}, system='{system}', coords={repr(c_syms)})"
+
+            elif op == 'mech_strain':
                 coords_raw = params.get('coords', 'x, y, z')
                 c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                if op == 'vec_grad':
-                    result_obj = sp.Matrix([sp.diff(expr, c) for c in c_syms])
-                    sympy_code_shown = f"sp.Matrix([sp.diff({repr(expr)}, c) for c in {repr(c_syms)}])"
-                elif op == 'vec_laplacian':
-                    result_obj = sum(sp.diff(expr, c, 2) for c in c_syms)
-                    sympy_code_shown = f"sum(sp.diff({repr(expr)}, c, 2) for c in {repr(c_syms)})"
-                elif op == 'vec_div':
-                    if not isinstance(expr, sp.MatrixBase) or len(expr) != len(c_syms):
-                        raise ValueError(f"Divergence requires a {len(c_syms)}-component vector/matrix matching coordinates {coords_raw}.")
-                    result_obj = sum(sp.diff(expr[i], c_syms[i]) for i in range(len(c_syms)))
-                    sympy_code_shown = f"sum(sp.diff(F[i], coords[i]) for i in range({len(c_syms)}))"
-                elif op == 'vec_curl':
-                    if not isinstance(expr, sp.MatrixBase) or len(expr) != 3 or len(c_syms) != 3:
-                        raise ValueError("Curl requires a 3-component vector [Fx, Fy, Fz] and 3 coordinates (x, y, z).")
-                    cx = sp.diff(expr[2], c_syms[1]) - sp.diff(expr[1], c_syms[2])
-                    cy = sp.diff(expr[0], c_syms[2]) - sp.diff(expr[2], c_syms[0])
-                    cz = sp.diff(expr[1], c_syms[0]) - sp.diff(expr[0], c_syms[1])
-                    result_obj = sp.Matrix([cx, cy, cz])
-                    sympy_code_shown = f"curl({repr(expr)}, {repr(c_syms)})"
+                result_obj = _mech_strain(expr, c_syms)
+                sympy_code_shown = f"mech_strain({repr(expr)}, coords={repr(c_syms)})"
+
+            elif op == 'mech_compat':
+                coords_raw = params.get('coords', 'x, y, z')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                compat_res = _mech_compat(expr, c_syms)
+                if compat_res['dim'] == 2:
+                    if compat_res['satisfied']:
+                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (2D):}} \\ &\nabla \times (\nabla \times \boldsymbol{\varepsilon})^T = 0 \quad \text{\textcolor{#059669}{\textbf{\checkmark Identically Satisfied}}} \\ &\text{Continuous single-valued displacement field } \vec{u}(x,y) \text{ guaranteed.} \end{aligned}"
+                        result_obj = sp.Integer(0)
+                    else:
+                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (2D) Residual:}} \\ &R = \frac{\partial^2 \varepsilon_{xx}}{\partial y^2} + \frac{\partial^2 \varepsilon_{yy}}{\partial x^2} - 2\frac{\partial^2 \varepsilon_{xy}}{\partial x \partial y} = " + sp.latex(compat_res['residual']) + r" \neq 0 \end{aligned}"
+                        result_obj = compat_res['residual']
+                else:
+                    if compat_res['satisfied']:
+                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (3D):}} \\ &\text{All 6 compatibility conditions } S_{ij} = 0 \quad \text{\textcolor{#059669}{\textbf{\checkmark Identically Satisfied}}} \end{aligned}"
+                        result_obj = sp.zeros(3, 3)
+                    else:
+                        pieces = [f"S_{{ij}}^{{{k+1}}} = {sp.latex(r)}" for k, r in enumerate(compat_res['residuals']) if r != 0]
+                        custom_latex = r"\begin{aligned} &\text{\textbf{Compatibility Non-Zero Residuals:}} \\ &" + r" \\ &".join(pieces) + r" \end{aligned}"
+                        result_obj = sp.Matrix(compat_res['residuals'])
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"mech_compat({repr(expr)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'mech_hooke':
+                st = params.get('state', 'plane_stress')
+                dr = params.get('direction', 'strain_to_stress')
+                E_sym = loc.get(params.get('E', 'E'), sp.Symbol('E'))
+                nu_sym = loc.get(params.get('nu', 'nu'), sp.Symbol('nu'))
+                result_obj = _mech_hooke(expr, st, dr, E_sym, nu_sym)
+                sympy_code_shown = f"mech_hooke({repr(expr)}, state='{st}', direction='{dr}', E={repr(E_sym)}, nu={repr(nu_sym)})"
+
+            elif op == 'mech_invariants':
+                inv_res = _mech_invariants(expr)
+                sig_ltx = sp.latex(inv_res['sigma'])
+                S_ltx = sp.latex(inv_res['S'])
+                I1_ltx = sp.latex(inv_res['I1'])
+                I2_ltx = sp.latex(inv_res['I2'])
+                I3_ltx = sp.latex(inv_res['I3'])
+                J2_ltx = sp.latex(inv_res['J2'])
+                vm_ltx = sp.latex(inv_res['sigma_vm'])
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Stress Invariants \& von Mises Yield:}} \\ "
+                    r"&I_1 = \mathrm{tr}(\boldsymbol{\sigma}) = " + I1_ltx + r", \quad "
+                    r"I_2 = " + I2_ltx + r", \quad "
+                    r"I_3 = \det(\boldsymbol{\sigma}) = " + I3_ltx + r" \\ "
+                    r"&\mathbf{S} = \boldsymbol{\sigma} - \frac{I_1}{3}\mathbf{I} = " + S_ltx + r" \\ "
+                    r"&J_2 = \frac{1}{2}\mathrm{tr}(\mathbf{S}^2) = " + J2_ltx + r" \\ "
+                    r"&\sigma_{\mathrm{vm}} = \sqrt{3 J_2} = " + vm_ltx + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = inv_res['sigma_vm']
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': sp.latex(sp.N(result_obj, 8)) if hasattr(result_obj, 'evalf') else None,
+                    'sympyCode': f"mech_invariants({repr(expr)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'mech_airy':
+                coords_raw = params.get('coords', 'x, y')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                airy_res = _mech_airy(expr, c_syms)
+                sig_mat = airy_res['stress_matrix']
+                bih_ltx = sp.latex(airy_res['biharmonic'])
+                is_bih = airy_res['is_biharmonic']
+                status_ltx = r"\text{\textcolor{#059669}{\textbf{\checkmark Biharmonic Valid (\nabla^4\Phi = 0)}}}" if is_bih else r"\text{\textcolor{#DC2626}{\textbf{\times Not Biharmonic (\nabla^4\Phi \neq 0)}}}"
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Airy Stress Function Analyzer:}} \quad " + status_ltx + r" \\ "
+                    r"&\nabla^4\Phi = " + bih_ltx + r" \\ "
+                    r"&\boldsymbol{\sigma} = \begin{bmatrix} \frac{\partial^2\Phi}{\partial y^2} & -\frac{\partial^2\Phi}{\partial x \partial y} \\ -\frac{\partial^2\Phi}{\partial x \partial y} & \frac{\partial^2\Phi}{\partial x^2} \end{bmatrix} = " + sp.latex(sig_mat) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = sig_mat
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"mech_airy({repr(expr)}, coords={repr(c_syms)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'mech_mohr':
+                mohr_res = _mech_mohr(expr)
+                s_avg, R = mohr_res['sig_avg'], mohr_res['R']
+                s1, s2 = mohr_res['sig_1'], mohr_res['sig_2']
+                t_max = mohr_res['tau_max']
+                th_p = mohr_res['theta_p']
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Mohr's Circle Analysis:}} \\ "
+                    r"&\sigma_{\text{avg}} = \frac{\sigma_x + \sigma_y}{2} = " + sp.latex(s_avg) + r", \quad "
+                    r"R = \sqrt{\left(\frac{\sigma_x - \sigma_y}{2}\right)^2 + \tau_{xy}^2} = " + sp.latex(R) + r" \\ "
+                    r"&\sigma_1 = \sigma_{\text{avg}} + R = " + sp.latex(s1) + r", \quad "
+                    r"\sigma_2 = \sigma_{\text{avg}} - R = " + sp.latex(s2) + r" \\ "
+                    r"&\tau_{\max} = R = " + sp.latex(t_max) + r", \quad "
+                    r"\theta_p = \frac{1}{2}\operatorname{atan2}(2\tau_{xy}, \sigma_x - \sigma_y) = " + sp.latex(th_p) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = sp.Matrix([s1, s2, t_max])
+                out_history[cell_index] = result_obj
+
+                mohr_plot = None
+                try:
+                    s_x_f = float(sp.N(mohr_res['sig_x']))
+                    s_y_f = float(sp.N(mohr_res['sig_y']))
+                    t_xy_f = float(sp.N(mohr_res['tau_xy']))
+                    c_f = 0.5 * (s_x_f + s_y_f)
+                    r_f = math.sqrt((0.5 * (s_x_f - s_y_f))**2 + t_xy_f**2)
+                    s1_f = c_f + r_f
+                    s2_f = c_f - r_f
+                    th_pts = [2 * math.pi * i / 200 for i in range(201)]
+                    mohr_plot = {
+                        'type': 'parametric',
+                        'traces': [
+                            {
+                                'x': [c_f + r_f * math.cos(t) for t in th_pts],
+                                'y': [r_f * math.sin(t) for t in th_pts],
+                                'mode': 'lines',
+                                'line': {'color': '#EA580C', 'width': 2.5},
+                                'name': "Mohr's Circle"
+                            },
+                            {
+                                'x': [s_x_f, s_y_f],
+                                'y': [-t_xy_f, t_xy_f],
+                                'mode': 'lines+markers',
+                                'line': {'color': '#3F3F46', 'width': 1.5, 'dash': 'dot'},
+                                'marker': {'size': 8, 'color': '#3F3F46'},
+                                'name': f"Stress State (σx={s_x_f:.2f}, σy={s_y_f:.2f})"
+                            },
+                            {
+                                'x': [s1_f, s2_f],
+                                'y': [0.0, 0.0],
+                                'mode': 'markers',
+                                'marker': {'size': 9, 'color': '#059669', 'symbol': 'diamond'},
+                                'name': f"Principal Stresses (σ₁={s1_f:.2f}, σ₂={s2_f:.2f})"
+                            },
+                            {
+                                'x': [c_f, c_f],
+                                'y': [r_f, -r_f],
+                                'mode': 'markers',
+                                'marker': {'size': 8, 'color': '#2563EB', 'symbol': 'circle'},
+                                'name': f"Max Shear τ_max=±{r_f:.2f}"
+                            }
+                        ],
+                        'title': f"Mohr's Circle: σ₁={s1_f:.2f}, σ₂={s2_f:.2f}, τ_max={r_f:.2f}",
+                        'xlab': 'Normal Stress σ_n',
+                        'ylab': 'Shear Stress τ'
+                    }
+                except Exception:
+                    mohr_plot = None
+
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"mech_mohr({repr(expr)})",
+                    'assigned': None,
+                    'plotData': mohr_plot,
+                    'session': serialize_session()
+                })
+
+            elif op == 'em_maxwell_check':
+                coords_raw = params.get('coords', 'x, y, z')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
+                rho_e, _ = parse_math_input(str(params.get('rho', '0')), latest_idx)
+                J_raw = str(params.get('J', '[0, 0, 0]'))
+                J_e, _ = parse_math_input(J_raw, latest_idx)
+                if not isinstance(J_e, sp.MatrixBase):
+                    J_e = sp.Matrix(J_e) if isinstance(J_e, (list, tuple)) else sp.Matrix([0, 0, 0])
+                chk = _em_maxwell_check(expr, c_syms, t_sym, rho_e, J_e)
+                def _badge(ok): return r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if ok else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Maxwell's Differential Equations Check:}} \\ "
+                    r"&\text{1. Gauss } (\nabla\cdot\mathbf{E} - \rho/\varepsilon_0): \quad " + _badge(chk['gauss_E']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['gauss_E']['res']) + r" \\ "
+                    r"&\text{2. Gauss Magnetism } (\nabla\cdot\mathbf{B}): \quad " + _badge(chk['gauss_B']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['gauss_B']['res']) + r" \\ "
+                    r"&\text{3. Faraday } (\nabla\times\mathbf{E} + \partial_t\mathbf{B}): \quad " + _badge(chk['faraday']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['faraday']['res']) + r" \\ "
+                    r"&\text{4. Ampère-Maxwell } (\nabla\times\mathbf{B} - \mu_0\varepsilon_0\partial_t\mathbf{E} - \mu_0\mathbf{J}): \quad " + _badge(chk['ampere']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['ampere']['res']) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = sp.Matrix([chk['gauss_E']['res'], chk['gauss_B']['res']])
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"em_maxwell_check({repr(expr)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'em_potentials':
+                coords_raw = params.get('coords', 'x, y, z')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
+                V_e, _ = parse_math_input(str(params.get('V', '0')), latest_idx)
+                pots = _em_potentials(expr, V_e, c_syms, t_sym)
+                E_f, B_f = pots['E'], pots['B']
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Electromagnetic Fields from Potentials:}} \\ "
+                    r"&\mathbf{B} = \nabla \times \mathbf{A} = " + sp.latex(B_f) + r" \\ "
+                    r"&\mathbf{E} = -\nabla V - \frac{\partial\mathbf{A}}{\partial t} = " + sp.latex(E_f) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = sp.Matrix([E_f.T, B_f.T]).T
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"em_potentials(A={repr(expr)}, V={repr(V_e)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'em_gauge':
+                coords_raw = params.get('coords', 'x, y, z')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
+                c_speed = sp.Symbol(params.get('c', 'c').strip() or 'c')
+                V_e, _ = parse_math_input(str(params.get('V', '0')), latest_idx)
+                g_res = _em_gauge(expr, V_e, c_syms, t_sym, c_speed)
+                l_badge = r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if g_res['lorenz_ok'] else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
+                c_badge = r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if g_res['coulomb_ok'] else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Gauge Invariance Condition Verifier:}} \\ "
+                    r"&\text{Lorenz Gauge } (\nabla\cdot\mathbf{A} + \frac{1}{c^2}\partial_t V): \quad " + l_badge + r" \quad \text{Res} = " + sp.latex(g_res['lorenz_res']) + r" \\ "
+                    r"&\text{Coulomb Gauge } (\nabla\cdot\mathbf{A}): \quad " + c_badge + r" \quad \text{Res} = " + sp.latex(g_res['coulomb_res']) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = g_res['lorenz_res']
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"em_gauge(A={repr(expr)}, V={repr(V_e)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'em_poynting':
+                poynt = _em_poynting(expr)
+                S_f, u_f, g_f = poynt['S'], poynt['u'], poynt['g']
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Poynting Energy Flux \& Density:}} \\ "
+                    r"&\mathbf{S} = \frac{1}{\mu_0}(\mathbf{E} \times \mathbf{B}) = " + sp.latex(S_f) + r" \\ "
+                    r"&u = \frac{1}{2}\varepsilon_0|\mathbf{E}|^2 + \frac{1}{2\mu_0}|\mathbf{B}|^2 = " + sp.latex(u_f) + r" \\ "
+                    r"&\mathbf{g} = \mu_0\varepsilon_0\mathbf{S} = \frac{\mathbf{S}}{c^2} = " + sp.latex(g_f) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = S_f
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"em_poynting({repr(expr)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
+
+            elif op == 'em_stress_tensor':
+                coords_raw = params.get('coords', 'x, y, z')
+                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
+                st_res = _em_stress_tensor(expr, c_syms)
+                T_mat = st_res['T']
+                f_vec = st_res['f']
+                custom_latex = (
+                    r"\begin{aligned} "
+                    r"&\text{\textbf{Maxwell Stress Tensor } T_{ij} \text{ \& Force Density:}} \\ "
+                    r"&\mathbf{T} = " + sp.latex(T_mat) + r" \\ "
+                    r"&\mathbf{f}_{\text{EM}} = \nabla \cdot \mathbf{T} = " + sp.latex(f_vec) + r" "
+                    r"\end{aligned}"
+                )
+                result_obj = T_mat
+                out_history[cell_index] = result_obj
+                return json.dumps({
+                    'status': 'ok',
+                    'latex': custom_latex,
+                    'approxLatex': None,
+                    'sympyCode': f"em_stress_tensor({repr(expr)})",
+                    'assigned': None,
+                    'session': serialize_session()
+                })
 
         # Save result into Out[n] history
         out_history[cell_index] = result_obj
@@ -4185,13 +5348,13 @@ function renderPlotlyChart(containerId, plotData, isUpdate = false) {
     plotFn(el, traces, layout, { responsive: true, displaylogo: false });
 
   } else if (plotData.type === 'parametric') {
-    const trace = {
+    const traces = plotData.traces || [{
       x: plotData.x,
       y: plotData.y,
       mode: 'lines',
       line: { color: '#C2410C', width: 2.5 },
       name: plotData.title || 'Parametric'
-    };
+    }];
     const isMohr = (plotData.title || '').toLowerCase().includes('mohr');
     const layout = {
       ...layoutBase,
@@ -4202,9 +5365,11 @@ function renderPlotlyChart(containerId, plotData, isUpdate = false) {
         gridcolor: '#E4E2DD',
         zerolinecolor: '#A1A1AA',
         ...(isMohr ? { scaleanchor: 'x', scaleratio: 1 } : {})
-      }
+      },
+      showlegend: traces.length > 1,
+      legend: { orientation: 'h', y: 1.15, x: 0 }
     };
-    plotFn(el, [trace], layout, { responsive: true, displaylogo: false });
+    plotFn(el, traces, layout, { responsive: true, displaylogo: false });
 
   } else if (plotData.type === 'vector_2d') {
     const trace = {
