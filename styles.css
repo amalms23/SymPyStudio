@@ -32,9 +32,9 @@
 math-field {
   display: block;
   width: 100%;
-  min-height: 50px;
-  padding: 10px 14px;
-  font-size: 1.2rem;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 1.15rem;
   background-color: #FFFFFF;
   border: 1px solid var(--border-warm);
   border-radius: 0.5rem;
@@ -72,13 +72,13 @@ math-field::part(menu-toggle) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 26px;
-  padding: 0 6px;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 5px;
   background-color: #FFFFFF;
   border: 1px solid var(--border-warm);
   border-radius: 4px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-ink);
   box-shadow: 0 1px 1px rgba(0,0,0,0.03);
   transition: all 0.12s ease;
@@ -102,7 +102,7 @@ math-field::part(menu-toggle) {
   background: var(--bg-surface);
   border: 1px solid var(--border-warm);
   border-left: 4px solid #CBD5E1;
-  border-radius: 0.65rem;
+  border-radius: 0.6rem;
   box-shadow: 0 1px 3px rgba(24, 24, 27, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -121,15 +121,15 @@ math-field::part(menu-toggle) {
 .katex-output-container {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.5rem 0;
-  font-size: 1.2rem;
+  padding: 0.4rem 0;
+  font-size: 1.15rem;
 }
 
 .katex-display {
-  margin: 0.35em 0 !important;
+  margin: 0.3em 0 !important;
 }
 
-/* Floating Add Cell Divider */
+/* Floating Add Cell Divider (hidden on last cell to avoid duplicating bottom add buttons) */
 .cell-divider-add {
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -137,6 +137,9 @@ math-field::part(menu-toggle) {
 .notebook-cell-wrapper:hover .cell-divider-add,
 .cell-divider-add:focus-within {
   opacity: 1;
+}
+.notebook-cell-wrapper:last-child .cell-divider-add {
+  display: none !important;
 }
 
 /* Direct SymPy Code Mode (CodeMirror & Fallback Editor) */

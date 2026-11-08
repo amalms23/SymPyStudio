@@ -8,7 +8,6 @@ const WORKSPACE_STORAGE_KEY = 'sympystudio_workspace_v3'; // multi-tab workspace
 
 // Global Application State
 const AppState = {
-  pyodide: null,
   kernelReady: false,
   kernelBusy: false,
   tabs: [],              // [{ id, name, cells, symbolAssumptions, evalCounter, evaluated }]
@@ -24,43 +23,94 @@ const AppState = {
   previewTimers: {},     // { cellId: timeoutId } for live code -> visual math preview
 };
 
+// Canonical Coordinate System Defaults & Shared Parameter Schemas
+const COORD_SYSTEM_DEFAULTS = {
+  cartesian: 'x, y, z',
+  cylindrical: 'r, theta, z',
+  spherical: 'r, theta, phi'
+};
+
+const CURVILINEAR_PARAMS = [
+  {
+    key: 'system',
+    label: 'System',
+    type: 'select',
+    default: 'cartesian',
+    options: [
+      { value: 'cartesian', text: 'Cartesian (x, y, z)' },
+      { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
+      { value: 'spherical', text: 'Spherical (r, θ, φ)' }
+    ]
+  },
+  { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+];
+
+// Backward-compatible operation aliases (collapses legacy duplicates into canonical operations)
+const OPERATION_ALIASES = {
+  vec_grad: 'curv_grad',
+  vec_div: 'curv_div',
+  vec_curl: 'curv_curl',
+  vec_laplacian: 'curv_laplacian',
+  em_field_plot: 'plot_vector_2d'
+};
+
+function normalizeOperationKey(opKey) {
+  return OPERATION_ALIASES[opKey] || opKey || 'eval';
+}
+
+// Categorized Optgroup Labels for Ergonomic Cell Operation Dropdowns
+const OPERATION_GROUPS = [
+  { id: 'calc', label: '1. Calculus & Analysis' },
+  { id: 'alg', label: '2. Algebra & Solvers' },
+  { id: 'linalg', label: '3. Matrices & Vector Calculus' },
+  { id: 'ode', label: '4. Differential Equations (ODE)' },
+  { id: 'plot', label: '5. Function & Field Plotter' },
+  { id: 'mech', label: '6A. Solid Mechanics Suite' },
+  { id: 'em', label: '6B. Electrodynamics Suite' }
+];
+
 // Operation Metadata & Parameter Configurations
 const OPERATIONS = {
   eval: {
-    label: 'Standard Evaluate / Symbolic Simplify',
+    label: 'Evaluate / Symbolic Simplify',
     category: 'tab-calculus',
+    group: 'calc',
     params: []
   },
   diff: {
     label: 'Differentiate (d/dx, ∂/∂x)',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'With respect to', type: 'text', default: 'x', width: 'w-14' },
-      { key: 'order', label: 'Order (n)', type: 'number', default: '1', width: 'w-14' }
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' },
+      { key: 'order', label: 'Order (n)', type: 'number', default: '1', width: 'w-12' }
     ]
   },
   integrate_indef: {
     label: 'Indefinite Integral (∫ f dx)',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-14' }
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' }
     ]
   },
   integrate_def: {
     label: 'Definite Integral (∫_a^b f dx)',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-14' },
-      { key: 'lower', label: 'Lower (a)', type: 'text', default: '0', width: 'w-20' },
-      { key: 'upper', label: 'Upper (b)', type: 'text', default: 'pi', width: 'w-20' }
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' },
+      { key: 'lower', label: 'From (a)', type: 'text', default: '0', width: 'w-16' },
+      { key: 'upper', label: 'To (b)', type: 'text', default: 'pi', width: 'w-16' }
     ]
   },
   limit: {
     label: 'Limit (lim x → a)',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-14' },
-      { key: 'point', label: 'Approaches (a)', type: 'text', default: '0', width: 'w-20' },
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' },
+      { key: 'point', label: 'Approaches (a)', type: 'text', default: '0', width: 'w-16' },
       {
         key: 'dir',
         label: 'Direction',
@@ -77,270 +127,215 @@ const OPERATIONS = {
   series: {
     label: 'Taylor / Maclaurin Series',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-14' },
-      { key: 'point', label: 'Around (x₀)', type: 'text', default: '0', width: 'w-16' },
-      { key: 'order', label: 'Order (n)', type: 'number', default: '6', width: 'w-14' }
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' },
+      { key: 'point', label: 'Around (x₀)', type: 'text', default: '0', width: 'w-14' },
+      { key: 'order', label: 'Order (n)', type: 'number', default: '6', width: 'w-12' }
     ]
   },
   sum: {
     label: 'Symbolic Summation (Σ)',
     category: 'tab-calculus',
+    group: 'calc',
     params: [
-      { key: 'var', label: 'Index', type: 'text', default: 'n', width: 'w-14' },
-      { key: 'lower', label: 'From', type: 'text', default: '1', width: 'w-16' },
-      { key: 'upper', label: 'To', type: 'text', default: 'oo', width: 'w-16' }
+      { key: 'var', label: 'Index', type: 'text', default: 'n', width: 'w-12' },
+      { key: 'lower', label: 'From', type: 'text', default: '1', width: 'w-14' },
+      { key: 'upper', label: 'To', type: 'text', default: 'oo', width: 'w-14' }
     ]
   },
   solve: {
     label: 'Solve Equation for Variable',
     category: 'tab-algebra',
+    group: 'alg',
     params: [
-      { key: 'var', label: 'Solve for', type: 'text', default: 'x', width: 'w-16' }
+      { key: 'var', label: 'Solve for', type: 'text', default: 'x', width: 'w-14' }
     ]
   },
   solve_system: {
     label: 'Simultaneous Equation Solver',
     category: 'tab-algebra',
+    group: 'alg',
     params: [
-      { key: 'eq2', label: '2nd Equation (LaTeX/Math)', type: 'text', default: 'x - y = 1', width: 'w-44' },
-      { key: 'eq3', label: '3rd Equation (optional)', type: 'text', default: '', width: 'w-36' },
-      { key: 'vars', label: 'Variables (comma-sep)', type: 'text', default: 'x, y', width: 'w-24' }
+      { key: 'eq2', label: '2nd Eq', type: 'text', default: 'x - y = 1', width: 'w-36' },
+      { key: 'eq3', label: '3rd Eq (opt)', type: 'text', default: '', width: 'w-28' },
+      { key: 'vars', label: 'Vars', type: 'text', default: 'x, y', width: 'w-20' }
     ]
   },
   simplify: {
     label: 'Simplify Expression',
     category: 'tab-algebra',
+    group: 'alg',
     params: []
   },
   expand: {
     label: 'Expand Expression',
     category: 'tab-algebra',
+    group: 'alg',
     params: []
   },
   factor: {
     label: 'Factor Polynomial / Expression',
     category: 'tab-algebra',
+    group: 'alg',
     params: []
   },
   apart: {
-    label: 'Partial Fraction Decomposition (apart)',
+    label: 'Partial Fractions (apart)',
     category: 'tab-algebra',
+    group: 'alg',
     params: [
-      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-14' }
+      { key: 'var', label: 'Variable', type: 'text', default: 'x', width: 'w-12' }
     ]
   },
   trigsimp: {
     label: 'Trigonometric Simplification',
     category: 'tab-algebra',
+    group: 'alg',
     params: []
   },
   mat_det: {
     label: 'Matrix Determinant det(A)',
     category: 'tab-linalg',
+    group: 'linalg',
     params: []
   },
   mat_inv: {
     label: 'Matrix Inverse (A⁻¹)',
     category: 'tab-linalg',
+    group: 'linalg',
     params: []
   },
   mat_transpose: {
     label: 'Matrix Transpose (Aᵀ)',
     category: 'tab-linalg',
+    group: 'linalg',
     params: []
   },
   mat_trace: {
     label: 'Matrix Trace tr(A)',
     category: 'tab-linalg',
+    group: 'linalg',
     params: []
   },
   mat_charpoly: {
     label: 'Characteristic Polynomial p(λ)',
     category: 'tab-linalg',
+    group: 'linalg',
     params: [
-      { key: 'var', label: 'Symbol', type: 'text', default: 'lambda', width: 'w-20' }
+      { key: 'var', label: 'Symbol', type: 'text', default: 'lambda', width: 'w-16' }
     ]
   },
   mat_eigen: {
     label: 'Eigenvalues & Eigenvectors',
     category: 'tab-linalg',
+    group: 'linalg',
     params: []
   },
-  vec_grad: {
-    label: 'Gradient (∇φ) in Cartesian (x,y,z)',
+  curv_grad: {
+    label: 'Gradient (∇φ) — Cartesian / Curvilinear',
     category: 'tab-linalg',
-    params: [
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
+    group: 'linalg',
+    params: CURVILINEAR_PARAMS
   },
-  vec_div: {
-    label: 'Divergence (∇·F) of Vector [Fx, Fy, Fz]',
+  curv_div: {
+    label: 'Divergence (∇·F) — Cartesian / Curvilinear',
     category: 'tab-linalg',
-    params: [
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
+    group: 'linalg',
+    params: CURVILINEAR_PARAMS
   },
-  vec_curl: {
-    label: 'Curl (∇×F) of Vector [Fx, Fy, Fz]',
+  curv_curl: {
+    label: 'Curl (∇×F) — Cartesian / Curvilinear',
     category: 'tab-linalg',
-    params: [
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
+    group: 'linalg',
+    params: CURVILINEAR_PARAMS
   },
-  vec_laplacian: {
-    label: 'Laplacian (∇²φ)',
+  curv_laplacian: {
+    label: 'Laplacian (∇²φ) — Cartesian / Curvilinear',
     category: 'tab-linalg',
-    params: [
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
+    group: 'linalg',
+    params: CURVILINEAR_PARAMS
   },
   ode_solve: {
     label: 'ODE Symbolic Solver (sp.dsolve)',
     category: 'tab-ode',
+    group: 'ode',
     params: [
-      { key: 'func', label: 'Dep. Function', type: 'text', default: 'y(x)', width: 'w-16' },
-      { key: 'ic1', label: 'IC 1 (e.g. y(0)=1)', type: 'text', default: '', width: 'w-28' },
-      { key: 'ic2', label: "IC 2 (e.g. y'(0)=0)", type: 'text', default: '', width: 'w-28' }
+      { key: 'func', label: 'Function', type: 'text', default: 'y(x)', width: 'w-14' },
+      { key: 'ic1', label: 'IC 1 (e.g. y(0)=1)', type: 'text', default: '', width: 'w-24' },
+      { key: 'ic2', label: "IC 2 (e.g. y'(0)=0)", type: 'text', default: '', width: 'w-24' }
     ]
   },
   plot_2d: {
-    label: '2D Function Curves y = f(x) (Multi-Curve Overlays)',
+    label: '2D Function Curves y = f(x)',
     category: 'tab-plotter',
+    group: 'plot',
     params: [
       { key: 'var', label: 'Var', type: 'text', default: 'x', width: 'w-10' },
-      { key: 'xmin', label: 'x_min', type: 'text', default: '-10', width: 'w-14' },
-      { key: 'xmax', label: 'x_max', type: 'text', default: '10', width: 'w-14' },
-      { key: 'overlay', label: 'Overlay f₂; f₃', type: 'text', default: '', width: 'w-32' },
-      { key: 'labels', label: 'Labels', type: 'text', default: '', width: 'w-28' },
+      { key: 'xmin', label: 'x_min', type: 'text', default: '-10', width: 'w-12' },
+      { key: 'xmax', label: 'x_max', type: 'text', default: '10', width: 'w-12' },
+      { key: 'overlay', label: 'Overlay f₂; f₃', type: 'text', default: '', width: 'w-28' },
+      { key: 'labels', label: 'Labels', type: 'text', default: '', width: 'w-24' },
       { key: 'points', label: 'Samples', type: 'number', default: '400', width: 'w-14' }
     ]
   },
   plot_parametric: {
-    label: '2D Parametric Curve x = f(t), y = g(t)',
+    label: '2D Parametric Curve x(t), y(t)',
     category: 'tab-plotter',
+    group: 'plot',
     params: [
-      { key: 'yt', label: 'y(t) (if not [x,y])', type: 'text', default: 'sin(t)', width: 'w-32' },
-      { key: 'var', label: 'Param', type: 'text', default: 't', width: 'w-12' },
-      { key: 'tmin', label: 't_min', type: 'text', default: '0', width: 'w-14' },
-      { key: 'tmax', label: 't_max', type: 'text', default: '2*pi', width: 'w-16' },
+      { key: 'yt', label: 'y(t) (if scalar x)', type: 'text', default: 'sin(t)', width: 'w-28' },
+      { key: 'var', label: 'Param', type: 'text', default: 't', width: 'w-10' },
+      { key: 'tmin', label: 't_min', type: 'text', default: '0', width: 'w-12' },
+      { key: 'tmax', label: 't_max', type: 'text', default: '2*pi', width: 'w-14' },
       { key: 'points', label: 'Samples', type: 'number', default: '400', width: 'w-14' }
     ]
   },
   plot_3d: {
     label: '3D Surface & Contours z = f(x, y)',
     category: 'tab-plotter',
+    group: 'plot',
     params: [
-      { key: 'xmin', label: 'x_min', type: 'text', default: '-5', width: 'w-14' },
-      { key: 'xmax', label: 'x_max', type: 'text', default: '5', width: 'w-14' },
-      { key: 'ymin', label: 'y_min', type: 'text', default: '-5', width: 'w-14' },
-      { key: 'ymax', label: 'y_max', type: 'text', default: '5', width: 'w-14' }
+      { key: 'xmin', label: 'x_min', type: 'text', default: '-5', width: 'w-12' },
+      { key: 'xmax', label: 'x_max', type: 'text', default: '5', width: 'w-12' },
+      { key: 'ymin', label: 'y_min', type: 'text', default: '-5', width: 'w-12' },
+      { key: 'ymax', label: 'y_max', type: 'text', default: '5', width: 'w-12' }
     ]
   },
   plot_vector_2d: {
-    label: '2D Vector Field Quiver [Fx, Fy] or ∇φ',
+    label: '2D Vector Field Quiver [Fx, Fy] / ∇φ',
     category: 'tab-plotter',
+    group: 'plot',
     params: [
       { key: 'xmin', label: 'x_min', type: 'text', default: '-4', width: 'w-12' },
       { key: 'xmax', label: 'x_max', type: 'text', default: '4', width: 'w-12' },
       { key: 'ymin', label: 'y_min', type: 'text', default: '-4', width: 'w-12' },
       { key: 'ymax', label: 'y_max', type: 'text', default: '4', width: 'w-12' },
-      { key: 'grid', label: 'Grid N', type: 'number', default: '15', width: 'w-14' }
-    ]
-  },
-
-  // --- CURVILINEAR CALCULUS SUITE ---
-  curv_grad: {
-    label: 'Curvilinear Gradient (∇φ)',
-    category: 'tab-suites',
-    params: [
-      {
-        key: 'system',
-        label: 'System',
-        type: 'select',
-        default: 'cartesian',
-        options: [
-          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
-          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
-          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
-        ]
-      },
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
-  },
-  curv_div: {
-    label: 'Curvilinear Divergence (∇·F)',
-    category: 'tab-suites',
-    params: [
-      {
-        key: 'system',
-        label: 'System',
-        type: 'select',
-        default: 'cartesian',
-        options: [
-          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
-          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
-          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
-        ]
-      },
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
-  },
-  curv_curl: {
-    label: 'Curvilinear Curl (∇×F)',
-    category: 'tab-suites',
-    params: [
-      {
-        key: 'system',
-        label: 'System',
-        type: 'select',
-        default: 'cartesian',
-        options: [
-          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
-          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
-          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
-        ]
-      },
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
-    ]
-  },
-  curv_laplacian: {
-    label: 'Curvilinear Laplacian (∇²φ)',
-    category: 'tab-suites',
-    params: [
-      {
-        key: 'system',
-        label: 'System',
-        type: 'select',
-        default: 'cartesian',
-        options: [
-          { value: 'cartesian', text: 'Cartesian (x, y, z)' },
-          { value: 'cylindrical', text: 'Cylindrical (r, θ, z)' },
-          { value: 'spherical', text: 'Spherical (r, θ, φ)' }
-        ]
-      },
-      { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-24' }
+      { key: 'grid', label: 'Grid N', type: 'number', default: '15', width: 'w-12' }
     ]
   },
 
   // --- SOLID MECHANICS SUITE ---
   mech_strain: {
-    label: 'Solid Mech: Small-Strain Tensor ε(u)',
+    label: 'Small-Strain Tensor ε(u)',
     category: 'tab-suites',
+    group: 'mech',
     params: [
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' }
     ]
   },
   mech_compat: {
-    label: 'Solid Mech: Saint-Venant Strain Compatibility',
+    label: 'Saint-Venant Strain Compatibility',
     category: 'tab-suites',
+    group: 'mech',
     params: [
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' }
     ]
   },
   mech_hooke: {
-    label: "Solid Mech: Constitutive Hooke's Law",
+    label: "Constitutive Hooke's Law",
     category: 'tab-suites',
+    group: 'mech',
     params: [
       {
         key: 'state',
@@ -363,79 +358,76 @@ const OPERATIONS = {
           { value: 'stress_to_strain', text: 'Stress σ → Strain ε' }
         ]
       },
-      { key: 'E', label: "Modulus (E)", type: 'text', default: 'E', width: 'w-14' },
-      { key: 'nu', label: "Poisson (ν)", type: 'text', default: 'nu', width: 'w-14' }
+      { key: 'E', label: "Modulus (E)", type: 'text', default: 'E', width: 'w-12' },
+      { key: 'nu', label: "Poisson (ν)", type: 'text', default: 'nu', width: 'w-12' }
     ]
   },
   mech_invariants: {
-    label: 'Solid Mech: Stress Invariants (I₁, J₂) & von Mises',
+    label: 'Stress Invariants (I₁, J₂) & von Mises',
     category: 'tab-suites',
+    group: 'mech',
     params: []
   },
   mech_airy: {
-    label: 'Solid Mech: Airy Stress Function Φ(x,y)',
+    label: 'Airy Stress Function Φ(x, y)',
     category: 'tab-suites',
+    group: 'mech',
     params: [
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y', width: 'w-16' }
     ]
   },
   mech_mohr: {
-    label: "Solid Mech: Mohr's Circle Plot & Principal Stresses",
+    label: "Mohr's Circle Plot & Principal Stresses",
     category: 'tab-suites',
+    group: 'mech',
     params: []
   },
 
   // --- ELECTRODYNAMICS SUITE ---
   em_maxwell_check: {
-    label: "Electrodynamics: Maxwell's Equations Verifier",
+    label: "Maxwell's Equations Verifier",
     category: 'tab-suites',
+    group: 'em',
     params: [
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-20' },
       { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' },
-      { key: 'rho', label: 'Charge ρ', type: 'text', default: '0', width: 'w-16' },
+      { key: 'rho', label: 'Charge ρ', type: 'text', default: '0', width: 'w-14' },
       { key: 'J', label: 'Current J', type: 'text', default: '[0, 0, 0]', width: 'w-24' }
     ]
   },
   em_potentials: {
-    label: 'Electrodynamics: Potentials (A, V) → Fields (E, B)',
+    label: 'Potentials (A, V) → Fields (E, B)',
     category: 'tab-suites',
+    group: 'em',
     params: [
-      { key: 'V', label: 'Scalar Potential V', type: 'text', default: '0', width: 'w-28' },
+      { key: 'V', label: 'Scalar V', type: 'text', default: '0', width: 'w-24' },
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' },
       { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' }
     ]
   },
   em_gauge: {
-    label: 'Electrodynamics: Lorenz & Coulomb Gauge Check',
+    label: 'Lorenz & Coulomb Gauge Check',
     category: 'tab-suites',
+    group: 'em',
     params: [
-      { key: 'V', label: 'Scalar Potential V', type: 'text', default: '0', width: 'w-28' },
+      { key: 'V', label: 'Scalar V', type: 'text', default: '0', width: 'w-24' },
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' },
       { key: 'time', label: 'Time', type: 'text', default: 't', width: 'w-10' },
       { key: 'c', label: 'Speed c', type: 'text', default: 'c', width: 'w-10' }
     ]
   },
   em_poynting: {
-    label: 'Electrodynamics: Poynting Flux S = (1/μ₀)(E × B) & Energy u',
+    label: 'Poynting Flux S = (1/μ₀)(E × B) & Energy u',
     category: 'tab-suites',
+    group: 'em',
     params: []
   },
   em_stress_tensor: {
-    label: 'Electrodynamics: Maxwell Stress Tensor T_ij & Force Density',
+    label: 'Maxwell Stress Tensor T_ij & Force Density',
     category: 'tab-suites',
+    group: 'em',
     params: [
       { key: 'coords', label: 'Coords', type: 'text', default: 'x, y, z', width: 'w-18' }
-    ]
-  },
-  em_field_plot: {
-    label: 'Electrodynamics: 2D Field Quiver Plot [Ex, Ey] / [Bx, By]',
-    category: 'tab-suites',
-    params: [
-      { key: 'xmin', label: 'x_min', type: 'text', default: '-5', width: 'w-12' },
-      { key: 'xmax', label: 'x_max', type: 'text', default: '5', width: 'w-12' },
-      { key: 'ymin', label: 'y_min', type: 'text', default: '-5', width: 'w-12' },
-      { key: 'ymax', label: 'y_max', type: 'text', default: '5', width: 'w-12' },
-      { key: 'grid', label: 'Grid N', type: 'number', default: '16', width: 'w-14' }
     ]
   }
 };
@@ -564,7 +556,8 @@ sig_mat = sp.Matrix([
     [ 20,  10, -30]
 ])
 # Eigenvalues (Principal stresses)
-p_stresses = sorted([float(sp.N(v)) for v in sig_mat.eigenvals().keys()], reverse=True)
+# (the cubic's exact roots carry ~1e-20 imaginary round-off when evaluated, so keep the real part)
+p_stresses = sorted([float(sp.re(sp.N(v))) for v in sig_mat.eigenvals().keys()], reverse=True)
 s1, s2, s3 = p_stresses[0], p_stresses[1], p_stresses[2]
 
 tau_tresca = 0.5 * (s1 - s3)
@@ -609,7 +602,7 @@ sp.pprint(sp.simplify(div_E))`
       mode: 'visual',
       title: '3. 2D Electric Dipole Vector Field Quiver Plot in Cartesian Plane',
       latex: String.raw`\left[ \frac{3 x y}{(x^2 + y^2 + 0.1)^{5/2}}, \frac{2 y^2 - x^2}{(x^2 + y^2 + 0.1)^{5/2}} \right]`,
-      operation: 'em_field_plot',
+      operation: 'plot_vector_2d',
       params: { xmin: '-3', xmax: '3', ymin: '-3', ymax: '3', grid: 16 }
     }
   ],
@@ -680,7 +673,7 @@ sp.pprint(beta_prop)`
       mode: 'visual',
       title: '3. Waveguide Electric Field Streamlines & Quiver in Cross-Section',
       latex: String.raw`\left[ 0, \sin(\frac{\pi x}{2}) \cos(z) \right]`,
-      operation: 'em_field_plot',
+      operation: 'plot_vector_2d',
       params: { xmin: '0', xmax: '2', ymin: '-3', ymax: '3', grid: 15 }
     }
   ],
@@ -1273,8 +1266,8 @@ result = Modal_Matrix`,
       id: 'cell_elec_2',
       mode: 'visual',
       latex: '-\\frac{q}{\\sqrt{x^2 + y^2 + z^2}}',
-      operation: 'vec_grad',
-      params: { coords: 'x, y, z' },
+      operation: 'curv_grad',
+      params: { system: 'cartesian', coords: 'x, y, z' },
       assignTo: 'E_field',
       inIndex: null
     },
@@ -1319,2605 +1312,8 @@ result = Modal_Matrix`,
   ]
 };
 
-/**
- * Python Kernel Bootstrap Code executed inside Pyodide on startup.
- * Sets up SymPy, custom LaTeX-to-SymPy sanitizer, persistent session_vars,
- * Out[n] history dictionary, and plotting data generators.
- */
-const PYTHON_BOOTSTRAP_CODE = String.raw`
-import sympy as sp
-from sympy import *
-import re
-import json
-import math
-import sys
-import io
-import ast
-
-try:
-    from sympy.parsing.latex import parse_latex
-    HAS_PARSE_LATEX = True
-except Exception:
-    HAS_PARSE_LATEX = False
-
-from sympy.parsing.sympy_parser import (
-    parse_expr,
-    standard_transformations,
-    implicit_multiplication_application,
-    convert_xor
-)
-
-# Global Persistent Memory
-session_vars = {}
-session_funcs = {}
-session_assumptions = {}
-out_history = {}
-
-# Pre-defined standard physics & engineering coordinates
-x, y, z, t, r, theta, phi = sp.symbols('x y z t r theta phi')
-n, k, m, q, c, g, hbar, omega, zeta, alpha, beta, gamma, delta, epsilon, epsilon_0, lam, mu, rho, sigma, tau, psi, Delta, nu, mu_0, E_mod = sp.symbols(
-    'n k m q c g hbar omega zeta alpha beta gamma delta epsilon epsilon_0 lambda mu rho sigma tau psi Delta nu mu_0 E_mod'
-)
-
-BASE_LOCALS = {
-    'x': x, 'y': y, 'z': z, 't': t, 'r': r, 'theta': theta, 'phi': phi,
-    'n': n, 'k': k, 'm': m, 'q': q, 'c': c, 'g': g, 'hbar': hbar,
-    'omega': omega, 'zeta': zeta, 'alpha': alpha, 'beta': beta, 'gamma': gamma,
-    'delta': delta, 'epsilon': epsilon, 'varepsilon_0': epsilon_0, 'epsilon_0': epsilon_0,
-    'lambda': lam, 'lam': lam, 'mu': mu, 'rho': rho, 'sigma': sigma, 'tau': tau,
-    'psi': psi, 'Delta': Delta, 'nu': nu, 'mu_0': mu_0, 'E_mod': E_mod,
-    'pi': sp.pi, 'e': sp.E, 'E': sp.E, 'oo': sp.oo, 'infty': sp.oo, 'I': sp.I,
-    'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan, 'cot': sp.cot, 'sec': sp.sec, 'csc': sp.csc,
-    'asin': sp.asin, 'acos': sp.acos, 'atan': sp.atan,
-    'sinh': sp.sinh, 'cosh': sp.cosh, 'tanh': sp.tanh,
-    'exp': sp.exp, 'ln': sp.log, 'log': sp.log, 'sqrt': sp.sqrt, 'Abs': sp.Abs,
-    'Matrix': sp.Matrix, 'Function': sp.Function, 'Derivative': sp.Derivative, 'Integral': sp.Integral,
-    'summation': sp.summation, 'product': sp.product, 'limit': sp.limit, 'integrate': sp.integrate, 'diff': sp.diff
-}
-
-GREEK_MAP = {
-    r'\alpha': 'alpha', r'\beta': 'beta', r'\gamma': 'gamma', r'\delta': 'delta',
-    r'\epsilon': 'epsilon', r'\varepsilon_0': 'epsilon_0', r'\epsilon_0': 'epsilon_0', r'\varepsilon': 'epsilon',
-    r'\zeta': 'zeta', r'\theta': 'theta', r'\vartheta': 'theta',
-    r'\lambda': 'lambda', r'\mu_0': 'mu_0', r'\mu': 'mu', r'\nu': 'nu',
-    r'\pi': 'pi', r'\rho': 'rho',
-    r'\sigma': 'sigma', r'\tau': 'tau', r'\phi': 'phi', r'\varphi': 'phi',
-    r'\psi': 'psi', r'\omega': 'omega', r'\hbar': 'hbar', r'\Delta': 'Delta',
-    r'\infty': 'oo'
-}
-
-def get_eval_locals():
-    loc = dict(BASE_LOCALS)
-    loc.update(session_vars)
-    for fn_name, fn_info in session_funcs.items():
-        loc[fn_name] = fn_info['callable']
-    return loc
-
-def reset_session_memory():
-    session_vars.clear()
-    session_funcs.clear()
-    out_history.clear()
-    return True
-
-def convert_latex_matrix(s):
-    pattern = r'\\begin\{(?:p|b|v|B|V)?matrix\}(.*?)\\end\{(?:p|b|v|B|V)?matrix\}'
-    def repl(match):
-        body = match.group(1).strip()
-        rows = [r.strip() for r in body.split(r'\\') if r.strip()]
-        row_strs = []
-        for r in rows:
-            cols = [latex_to_sympy_str(c.strip()) for c in r.split('&')]
-            row_strs.append('[' + ', '.join(cols) + ']')
-        return 'Matrix([' + ', '.join(row_strs) + '])'
-    while re.search(pattern, s, flags=re.DOTALL):
-        s = re.sub(pattern, repl, s, flags=re.DOTALL)
-    return s
-
-def _extract_braced(s, pos):
-    if pos >= len(s) or s[pos] != '{':
-        return None, pos
-    depth = 0
-    start = pos + 1
-    for i in range(pos, len(s)):
-        if s[i] == '{':
-            depth += 1
-        elif s[i] == '}':
-            depth -= 1
-            if depth == 0:
-                return s[start:i], i + 1
-    return None, pos
-
-def _replace_fracs(s):
-    frac_macro = re.compile(r'\\(?:d|t)?frac\s*\{')
-    while True:
-        m = frac_macro.search(s)
-        if not m:
-            break
-        num, pos2 = _extract_braced(s, m.end() - 1)
-        if num is None:
-            break
-        while pos2 < len(s) and s[pos2].isspace():
-            pos2 += 1
-        if pos2 >= len(s) or s[pos2] != '{':
-            break
-        den, end_pos = _extract_braced(s, pos2)
-        if den is None:
-            break
-        num_replaced = _replace_fracs(num)
-        den_replaced = _replace_fracs(den)
-        s = s[:m.start()] + f"(({num_replaced})/({den_replaced}))" + s[end_pos:]
-    return s
-
-def _replace_sqrts(s):
-    # 1. \sqrt[n]{body}
-    sqrt_n_macro = re.compile(r'\\sqrt\s*\[([^\[\]]*)\]\s*\{')
-    while True:
-        m = sqrt_n_macro.search(s)
-        if not m:
-            break
-        deg = m.group(1)
-        body, end_pos = _extract_braced(s, m.end() - 1)
-        if body is None:
-            break
-        body_replaced = _replace_sqrts(body)
-        s = s[:m.start()] + f"(({body_replaced})**(1/({deg})))" + s[end_pos:]
-
-    # 2. \sqrt{body}
-    sqrt_macro = re.compile(r'\\sqrt\s*\{')
-    while True:
-        m = sqrt_macro.search(s)
-        if not m:
-            break
-        body, end_pos = _extract_braced(s, m.end() - 1)
-        if body is None:
-            break
-        body_replaced = _replace_sqrts(body)
-        s = s[:m.start()] + f"sqrt({body_replaced})" + s[end_pos:]
-    return s
-
-def replace_frac_and_sqrt(s):
-    s = re.sub(r'\\(?:d|t)?frac\{\s*d\s*([a-zA-Z])\s*\}\{', r'\\frac{1}{', s)
-    s = _replace_fracs(s)
-    s = _replace_sqrts(s)
-    return s
-
-def latex_to_sympy_str(latex_str, latest_idx=None):
-    if not latex_str:
-        return '0'
-    s = latex_str.strip()
-
-    # Clean MathLive decorators & formatting commands
-    s = s.replace(r'\mleft', '').replace(r'\mright', '').replace(r'\left', '').replace(r'\right', '').replace(r'\middle', '')
-    s = s.replace(r'\displaystyle', '').replace(r'\textstyle', '')
-    s = s.replace(r'\,', ' ').replace(r'\;', ' ').replace(r'\:', ' ').replace(r'\!', '').replace(r'\quad', ' ').replace(r'\qquad', ' ')
-    s = s.replace(r'\ ', ' ').replace('~', ' ')
-    s = s.replace(r'\cdot', '*').replace(r'\times', '*').replace(r'\ast', '*').replace(r'\div', '/')
-    s = s.replace(r'\exponentialE', 'E').replace(r'\imaginaryI', 'I')
-    s = s.replace(r'\differentialD', ' d').replace(r'\mathrm{d}', ' d').replace(r'\text{d}', ' d')
-    s = s.replace(r'\longrightarrow', r'\to').replace(r'\rightarrow', r'\to')
-    s = re.sub(r'\\placeholder\{([^{}]*)\}', lambda m: m.group(1).strip() or '0', s)
-
-    # Handle %n and % output references
-    s = s.replace(r'\%', '%')
-    def out_ref_repl(m):
-        idx = int(m.group(1))
-        return f"(_out_ref({idx}))"
-    s = re.sub(r'%(\d+)', out_ref_repl, s)
-    if latest_idx is not None:
-        s = re.sub(r'%(?!\d)', f"(_out_ref({latest_idx}))", s)
-
-    # Handle matrices first
-    s = convert_latex_matrix(s)
-
-    # Protect \varepsilon_0 before normalizing unbraced subscripts
-    s = re.sub(r'\\varepsilon_0\b', ' epsilon_0 ', s)
-    s = re.sub(r'\\epsilon_0\b', ' epsilon_0 ', s)
-
-    # Normalize unbraced single-token subscripts and superscripts:
-    # e.g. \int_0^\pi -> \int_{0}^{\pi}, \sum_{n=1}^\infty -> \sum_{n=1}^{\infty}, x^2 -> x^{2}
-    s = re.sub(r'_(\\[a-zA-Z]+|[a-zA-Z0-9])(?![a-zA-Z0-9])', r'_{\1}', s)
-    s = re.sub(r'\^(\\[a-zA-Z]+|[a-zA-Z0-9])(?![a-zA-Z0-9])', r'^{\1}', s)
-
-    # Normalize reversed integral bounds: \int^{b}_{a} -> \int_{a}^{b}
-    s = re.sub(r'(\\int)\^\{([^{}]+)\}_\{([^{}]+)\}', r'\1_{\3}^{\2}', s)
-
-    # Convert derivative templates BEFORE general \frac replacement:
-    # Higher-order or 1st-order ordinary derivative: \frac{d}{dx}(expr) or \frac{d^2}{dx^2}(expr) or \frac{d}{dx} expr
-    def _ord_diff_paren(m):
-        order = m.group(1)
-        var = m.group(2)
-        body = m.group(3)
-        return f"diff({body}, {var}, {order})" if order else f"diff({body}, {var})"
-    def _ord_diff_rest(m):
-        order = m.group(1)
-        var = m.group(2)
-        body = m.group(3)
-        return f"diff({body}, {var}, {order})" if order else f"diff({body}, {var})"
-
-    s = re.sub(
-        r'\\(?:d|t)?frac\{\s*d(?:\^\{(\d+)\})?\s*\}\{\s*d\s*([a-zA-Z]+)(?:\^\{\d+\})?\s*\}\s*\(([^()]+)\)',
-        _ord_diff_paren,
-        s
-    )
-    s = re.sub(
-        r'\\(?:d|t)?frac\{\s*d(?:\^\{(\d+)\})?\s*\}\{\s*d\s*([a-zA-Z]+)(?:\^\{\d+\})?\s*\}\s*(.+)',
-        _ord_diff_rest,
-        s
-    )
-    s = re.sub(
-        r'\\(?:d|t)?frac\{\s*\\partial(?:\^\{(\d+)\})?\s*\}\{\s*\\partial\s*([a-zA-Z]+)(?:\^\{\d+\})?\s*\}\s*\(([^()]+)\)',
-        _ord_diff_paren,
-        s
-    )
-    s = re.sub(
-        r'\\(?:d|t)?frac\{\s*\\partial(?:\^\{(\d+)\})?\s*\}\{\s*\\partial\s*([a-zA-Z]+)(?:\^\{\d+\})?\s*\}\s*(.+)',
-        _ord_diff_rest,
-        s
-    )
-
-    # Replace fractions and roots (before integrals/sums/limits so nested braces in bounds/integrands are resolved)
-    s = replace_frac_and_sqrt(s)
-
-    # Absolute value |expr|
-    s = re.sub(r'\|([^|]+)\|', r'Abs(\1)', s)
-
-    # Greek symbols (replace before calculus templates so bounds like ^{\pi} or ^{\infty} become ^{pi} or ^{oo})
-    for k_lat, v_sym in GREEK_MAP.items():
-        s = re.sub(re.escape(k_lat) + r'(?![a-zA-Z])', ' ' + v_sym + ' ', s)
-
-    # Logarithms & Trig functions (insert leading space so \int\sin or x\sin never fuse into intsin / xsin)
-    s = re.sub(r'\\log_\{10\}', ' log10_fn', s)
-    FN_MAP = {
-        'sinh': 'sinh', 'cosh': 'cosh', 'tanh': 'tanh',
-        'arcsin': 'asin', 'arccos': 'acos', 'arctan': 'atan',
-        'asin': 'asin', 'acos': 'acos', 'atan': 'atan',
-        'sin': 'sin', 'cos': 'cos', 'tan': 'tan',
-        'cot': 'cot', 'sec': 'sec', 'csc': 'csc',
-        'exp': 'exp', 'ln': 'ln', 'log': 'log'
-    }
-    for fn_lat, fn_sym in FN_MAP.items():
-        s = re.sub(r'\\' + fn_lat + r'(?![a-zA-Z])', ' ' + fn_sym + ' ', s)
-
-    # Inline calculus templates in LaTeX (run before wrapping function args so "xdx" splits cleanly into "x" and "dx"):
-    diff_var_pat = r'(?:theta|phi|tau|omega|alpha|beta|gamma|delta|epsilon|zeta|lambda|mu|rho|sigma|psi|[a-zA-Z])'
-
-    # 1. Definite integral: \int_{a}^{b} expr dx (supports \int_0^\pi\sin xdx with no spaces)
-    def _def_int_repl(m):
-        a_bound = m.group(1).strip()
-        b_bound = m.group(2).strip()
-        body = m.group(3).strip() or '1'
-        var = m.group(4).strip()
-        return f"integrate({body}, ({var}, {a_bound}, {b_bound}))"
-
-    s = re.sub(
-        rf'\\int_\{{([^{{}}]+)\}}\^\{{([^{{}}]+)\}}\s*(.*?)\s*d\s*({diff_var_pat})\b',
-        _def_int_repl,
-        s
-    )
-    # Definite integral without explicit dx (defaults variable to x)
-    s = re.sub(
-        r'\\int_\{([^{}]+)\}\^\{([^{}]+)\}\s*(.+)',
-        lambda m: f"integrate({m.group(3).strip() or '1'}, (x, {m.group(1).strip()}, {m.group(2).strip()}))",
-        s
-    )
-
-    # 2. Indefinite integral: \int expr dx (supports \int\sin xdx with no spaces)
-    def _indef_int_repl(m):
-        body = m.group(1).strip() or '1'
-        var = m.group(2).strip()
-        return f"integrate({body}, {var})"
-
-    s = re.sub(
-        rf'\\int(?![a-zA-Z_])\s*(.*?)\s*d\s*({diff_var_pat})\b',
-        _indef_int_repl,
-        s
-    )
-    # Indefinite integral without explicit dx (defaults variable to x)
-    s = re.sub(
-        r'\\int(?![a-zA-Z_])\s*(.+)',
-        lambda m: f"integrate({m.group(1).strip() or '1'}, x)",
-        s
-    )
-
-    # 3. Limit: \lim_{x \to a} expr (including one-sided \lim_{x \to a^+} or \lim_{x \to a^-})
-    def _limit_repl(m):
-        var = m.group(1).strip()
-        pt = m.group(2).strip()
-        body = m.group(3).strip()
-        dir_match = re.match(r'^(.*?)\^\{\s*([+-])\s*\}$', pt)
-        if dir_match:
-            return f"limit({body}, {var}, {dir_match.group(1).strip()}, '{dir_match.group(2)}')"
-        return f"limit({body}, {var}, {pt})"
-
-    s = re.sub(
-        r'\\lim_\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\\to\s*(.+?)\}\s*(.+)',
-        _limit_repl,
-        s
-    )
-
-    # 4. Summation: \sum_{n=a}^{b} expr
-    s = re.sub(
-        r'\\sum_\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^{}]+)\}\^\{([^{}]+)\}\s*(.+)',
-        r'summation(\4, (\1, \2, \3))',
-        s
-    )
-
-    # 5. Product: \prod_{n=a}^{b} expr
-    s = re.sub(
-        r'\\prod_\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^{}]+)\}\^\{([^{}]+)\}\s*(.+)',
-        r'product(\4, (\1, \2, \3))',
-        s
-    )
-
-    # Handle trig/log powers like sin^{2}(x) or sin^{2}x -> (sin(x))**(2)
-    fn_names_pat = r'(?:sinh|cosh|tanh|asin|acos|atan|sin|cos|tan|cot|sec|csc|exp|ln|log)'
-    s = re.sub(
-        rf'\b({fn_names_pat})\s*\^\{{([^{{}}]+)\}}\s*\(([^()]+)\)',
-        r'(\1(\3))**(\2)',
-        s
-    )
-    s = re.sub(
-        rf'\b({fn_names_pat})\s*\^\{{([^{{}}]+)\}}\s*([a-zA-Z0-9_]+)',
-        r'(\1(\3))**(\2)',
-        s
-    )
-
-    # Wrap unparenthesized single-token function arguments: e.g. "sin x" -> "sin(x)", "cos theta" -> "cos(theta)"
-    s = re.sub(
-        rf'\b({fn_names_pat})\s+([a-zA-Z0-9_]+)\b(?!\s*\()',
-        r'\1(\2)',
-        s
-    )
-    # Remove any extra space between function name and opening parenthesis: "sin (x)" -> "sin(x)"
-    s = re.sub(rf'\b({fn_names_pat})\s+\(', r'\1(', s)
-
-    # Subscripts like K_{mat} -> K_mat
-    s = re.sub(r'_\{([a-zA-Z0-9_]+)\}', r'_\1', s)
-
-    # Superscripts ^{...} -> **(...)
-    exp_pat = re.compile(r'\^\{([^{}]*)\}')
-    while exp_pat.search(s):
-        s = exp_pat.sub(r'**(\1)', s)
-    s = s.replace('^', '**')
-
-    # Remaining braces to parentheses
-    s = s.replace('{', '(').replace('}', ')')
-
-    # Clean stray backslashes
-    s = s.replace('\\', '')
-
-    return s.strip()
-
-def _out_ref(idx):
-    if idx in out_history:
-        return out_history[idx]
-    raise ValueError(f"Output reference %{idx} does not exist yet.")
-
-def parse_math_input(latex_str, latest_idx=None):
-    cleaned = latex_to_sympy_str(latex_str, latest_idx)
-    loc = get_eval_locals()
-    loc['_out_ref'] = _out_ref
-    loc['log10_fn'] = lambda arg: sp.log(arg, 10)
-
-    # Automatically register subscripted symbols (e.g. v_0, x_1, k_B) so split_symbols keeps them intact
-    for sub_sym in re.findall(r'\b[a-zA-Z]+_[a-zA-Z0-9_]+\b', cleaned):
-        if sub_sym not in loc:
-            loc[sub_sym] = sp.Symbol(sub_sym)
-
-    transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
-
-    # Check if cleaned is a vector/list [a, b, c]
-    if cleaned.startswith('[') and cleaned.endswith(']') and not cleaned.startswith('Matrix'):
-        inner = cleaned[1:-1]
-        parts = [parse_expr(p.strip(), local_dict=loc, transformations=transformations) for p in inner.split(',')]
-        return sp.Matrix(parts), cleaned
-
-    # Check if cleaned is an equality: LHS = RHS (not ==)
-    if '=' in cleaned and not ('==' in cleaned):
-        l_s, r_s = cleaned.split('=', 1)
-        l_e = parse_expr(l_s.strip(), local_dict=loc, transformations=transformations)
-        r_e = parse_expr(r_s.strip(), local_dict=loc, transformations=transformations)
-        return sp.Eq(l_e, r_e), cleaned
-
-    try:
-        expr = parse_expr(cleaned, local_dict=loc, transformations=transformations)
-        return expr, cleaned
-    except Exception as first_err:
-        if HAS_PARSE_LATEX:
-            try:
-                expr = parse_latex(latex_str)
-                expr = expr.subs(session_vars)
-                return expr, f"parse_latex({repr(latex_str)})"
-            except Exception:
-                pass
-        raise first_err
-
-def apply_symbol_assumptions(payload_json):
-    data = json.loads(payload_json)
-    raw_syms = data.get('symbols', '')
-    pos = bool(data.get('positive', False))
-    rl  = bool(data.get('real', False))
-    itg = bool(data.get('integer', False))
-    nz  = bool(data.get('nonzero', False))
-
-    kw = {}
-    if pos: kw['positive'] = True
-    if rl:  kw['real'] = True
-    if itg: kw['integer'] = True
-    if nz:  kw['nonzero'] = True
-
-    names = [s.strip() for s in re.split(r'[,\s]+', raw_syms) if s.strip() and re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', s.strip())]
-    for nm in names:
-        sym_obj = sp.Symbol(nm, **kw)
-        BASE_LOCALS[nm] = sym_obj
-        session_vars[nm] = sym_obj
-        flags = []
-        if pos: flags.append('positive')
-        if rl:  flags.append('real')
-        if itg: flags.append('integer')
-        if nz:  flags.append('nonzero')
-        session_assumptions[nm] = flags or ['complex']
-
-    return json.dumps({
-        'status': 'ok',
-        'session': serialize_session()
-    })
-
-def serialize_session():
-    vars_list = []
-    for k_name, val in session_vars.items():
-        if isinstance(val, sp.Symbol) and str(val) == k_name and k_name in session_assumptions:
-            # Shown in assumptions badges, only list in Assigned Symbols if assigned a value/expression
-            continue
-        vars_list.append({
-            'name': k_name,
-            'type': 'Matrix' if isinstance(val, sp.MatrixBase) else 'Symbol/Expr',
-            'latex': sp.latex(val)
-        })
-    for f_name, f_info in session_funcs.items():
-        vars_list.append({
-            'name': f"{f_name}({', '.join(str(a) for a in f_info['args'])})",
-            'type': 'Function',
-            'latex': sp.latex(f_info['expr'])
-        })
-    outs_list = []
-    for idx in sorted(out_history.keys()):
-        val = out_history[idx]
-        if val is not None:
-            outs_list.append({
-                'index': idx,
-                'latex': sp.latex(val)
-            })
-    assumptions_list = [
-        {'name': k, 'flags': v}
-        for k, v in sorted(session_assumptions.items())
-    ]
-    return {'vars': vars_list, 'outs': outs_list, 'assumptions': assumptions_list}
-`;
-
-// Python Execution Dispatcher Function registered in Pyodide
-const PYTHON_EVAL_RUNNER = String.raw`
-def _detect_and_bind_free_params(expr_list, bound_syms, param_overrides=None):
-    param_overrides = param_overrides or {}
-    bound_names = {str(s) for s in bound_syms}
-    free_syms = set()
-    for ex in expr_list:
-        if hasattr(ex, 'free_symbols'):
-            for fs in ex.free_symbols:
-                if str(fs) not in bound_names:
-                    free_syms.add(fs)
-    sorted_syms = sorted(free_syms, key=lambda s: str(s))
-    subs_map = {}
-    slider_meta = []
-    default_presets = {
-        'omega_1': 1.0, 'omega_2': 1.732, 'omega': 2.0, 'zeta': 0.2,
-        'a': 1.0, 'b': 1.0, 'q_0': 2.0, 'k': 1.5, 'm': 1.0, 'c': 1.0,
-        'R': 1.5, 'I': 1.0, 'q': 1.0
-    }
-    for idx, sym in enumerate(sorted_syms):
-        s_name = str(sym)
-        default_val = default_presets.get(s_name, 1.0 + 0.5 * (idx % 3))
-        if s_name in param_overrides:
-            try:
-                val = float(param_overrides[s_name])
-            except Exception:
-                val = default_val
-        else:
-            val = default_val
-        subs_map[sym] = val
-        slider_meta.append({
-            'name': s_name,
-            'latex': sp.latex(sym),
-            'min': -5.0 if val < 0 else 0.1,
-            'max': max(5.0, round(abs(val) * 3.0, 2)),
-            'step': 0.05,
-            'value': round(val, 4)
-        })
-    bound_exprs = [ex.subs(subs_map) if hasattr(ex, 'subs') else ex for ex in expr_list]
-    return bound_exprs, slider_meta
-
-# ---------------------------------------------------------------------------
-# Suites: Curvilinear Differential Operators & Tensor Analysis
-# ---------------------------------------------------------------------------
-def _get_curvilinear_metric(system, c_syms):
-    if system == 'cylindrical':
-        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
-        return [u1, u2, u3], [sp.Integer(1), u1, sp.Integer(1)]
-    elif system == 'spherical':
-        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
-        return [u1, u2, u3], [sp.Integer(1), u1, u1 * sp.sin(u2)]
-    else:
-        # Cartesian
-        u1, u2, u3 = c_syms[0], c_syms[1], c_syms[2]
-        return [u1, u2, u3], [sp.Integer(1), sp.Integer(1), sp.Integer(1)]
-
-def _curv_grad(phi_expr, system, c_syms):
-    coords, h = _get_curvilinear_metric(system, c_syms)
-    return sp.Matrix([sp.simplify(sp.diff(phi_expr, coords[i]) / h[i]) for i in range(3)])
-
-def _curv_div(F_vec, system, c_syms):
-    coords, h = _get_curvilinear_metric(system, c_syms)
-    h_prod = sp.simplify(h[0] * h[1] * h[2])
-    t1 = sp.diff(h[1] * h[2] * F_vec[0], coords[0])
-    t2 = sp.diff(h[0] * h[2] * F_vec[1], coords[1])
-    t3 = sp.diff(h[0] * h[1] * F_vec[2], coords[2])
-    return sp.simplify((t1 + t2 + t3) / h_prod)
-
-def _curv_curl(F_vec, system, c_syms):
-    coords, h = _get_curvilinear_metric(system, c_syms)
-    c1 = sp.simplify((sp.diff(h[2] * F_vec[2], coords[1]) - sp.diff(h[1] * F_vec[1], coords[2])) / (h[1] * h[2]))
-    c2 = sp.simplify((sp.diff(h[0] * F_vec[0], coords[2]) - sp.diff(h[2] * F_vec[2], coords[0])) / (h[0] * h[2]))
-    c3 = sp.simplify((sp.diff(h[1] * F_vec[1], coords[0]) - sp.diff(h[0] * F_vec[0], coords[1])) / (h[0] * h[1]))
-    return sp.Matrix([c1, c2, c3])
-
-def _curv_laplacian(phi_expr, system, c_syms):
-    coords, h = _get_curvilinear_metric(system, c_syms)
-    h_prod = sp.simplify(h[0] * h[1] * h[2])
-    t1 = sp.diff((h[1] * h[2] / h[0]) * sp.diff(phi_expr, coords[0]), coords[0])
-    t2 = sp.diff((h[0] * h[2] / h[1]) * sp.diff(phi_expr, coords[1]), coords[1])
-    t3 = sp.diff((h[0] * h[1] / h[2]) * sp.diff(phi_expr, coords[2]), coords[2])
-    return sp.simplify((t1 + t2 + t3) / h_prod)
-
-def _mech_strain(expr, c_syms):
-    dim = len(c_syms)
-    if not isinstance(expr, sp.MatrixBase):
-        if isinstance(expr, (list, tuple)):
-            expr = sp.Matrix(expr)
-        else:
-            raise ValueError(f"Displacement must be a {dim}-element vector [u, v] or [u, v, w].")
-    if len(expr) != dim:
-        dim = len(expr)
-        c_syms = [sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z')][:dim]
-    eps = sp.zeros(dim, dim)
-    for i in range(dim):
-        for j in range(dim):
-            dij = sp.diff(expr[i], c_syms[j])
-            dji = sp.diff(expr[j], c_syms[i])
-            eps[i, j] = sp.simplify(sp.Rational(1, 2) * (dij + dji))
-    return eps
-
-def _mech_compat(eps, c_syms):
-    dim = eps.rows if isinstance(eps, sp.MatrixBase) else 2
-    if dim == 2:
-        x_s, y_s = c_syms[0], c_syms[1]
-        e_xx, e_yy, e_xy = eps[0, 0], eps[1, 1], eps[0, 1]
-        res = sp.simplify(sp.diff(e_xx, y_s, 2) + sp.diff(e_yy, x_s, 2) - 2 * sp.diff(e_xy, x_s, y_s))
-        return {'dim': 2, 'satisfied': res == 0, 'residual': res}
-    else:
-        # 3D
-        x_s, y_s, z_s = c_syms[0], c_syms[1], c_syms[2]
-        s11 = sp.simplify(sp.diff(eps[1, 1], z_s, 2) + sp.diff(eps[2, 2], y_s, 2) - 2 * sp.diff(eps[1, 2], y_s, z_s))
-        s22 = sp.simplify(sp.diff(eps[2, 2], x_s, 2) + sp.diff(eps[0, 0], z_s, 2) - 2 * sp.diff(eps[2, 0], z_s, x_s))
-        s33 = sp.simplify(sp.diff(eps[0, 0], y_s, 2) + sp.diff(eps[1, 1], x_s, 2) - 2 * sp.diff(eps[0, 1], x_s, y_s))
-        s12 = sp.simplify(sp.diff(-sp.diff(eps[0, 1], z_s) + sp.diff(eps[1, 2], x_s) + sp.diff(eps[2, 0], y_s), z_s) - sp.diff(eps[2, 2], x_s, y_s))
-        s23 = sp.simplify(sp.diff(-sp.diff(eps[1, 2], x_s) + sp.diff(eps[2, 0], y_s) + sp.diff(eps[0, 1], z_s), x_s) - sp.diff(eps[0, 0], y_s, z_s))
-        s31 = sp.simplify(sp.diff(-sp.diff(eps[2, 0], y_s) + sp.diff(eps[0, 1], z_s) + sp.diff(eps[1, 2], x_s), y_s) - sp.diff(eps[1, 1], z_s, x_s))
-        residuals = [s11, s22, s33, s12, s23, s31]
-        satisfied = all(r == 0 for r in residuals)
-        return {'dim': 3, 'satisfied': satisfied, 'residuals': residuals}
-
-def _mech_hooke(expr, state, direction, E_sym, nu_sym):
-    if not isinstance(expr, sp.MatrixBase):
-        raise ValueError("Input must be a 2x2 or 3x3 strain/stress Matrix.")
-    dim = expr.rows
-    if state == 'plane_stress':
-        if direction == 'strain_to_stress':
-            e11, e22, e12 = expr[0, 0], expr[1, 1], expr[0, 1]
-            factor = E_sym / (1 - nu_sym**2)
-            s11 = sp.simplify(factor * (e11 + nu_sym * e22))
-            s22 = sp.simplify(factor * (e22 + nu_sym * e11))
-            s12 = sp.simplify((E_sym / (1 + nu_sym)) * e12)
-            return sp.Matrix([[s11, s12], [s12, s22]])
-        else:
-            s11, s22, s12 = expr[0, 0], expr[1, 1], expr[0, 1]
-            e11 = sp.simplify((s11 - nu_sym * s22) / E_sym)
-            e22 = sp.simplify((s22 - nu_sym * s11) / E_sym)
-            e12 = sp.simplify(((1 + nu_sym) / E_sym) * s12)
-            return sp.Matrix([[e11, e12], [e12, e22]])
-    elif state == 'plane_strain':
-        if direction == 'strain_to_stress':
-            e11, e22, e12 = expr[0, 0], expr[1, 1], expr[0, 1]
-            factor = E_sym / ((1 + nu_sym) * (1 - 2 * nu_sym))
-            s11 = sp.simplify(factor * ((1 - nu_sym) * e11 + nu_sym * e22))
-            s22 = sp.simplify(factor * ((1 - nu_sym) * e22 + nu_sym * e11))
-            s12 = sp.simplify((E_sym / (1 + nu_sym)) * e12)
-            s33 = sp.simplify(nu_sym * (s11 + s22))
-            return sp.Matrix([[s11, s12, 0], [s12, s22, 0], [0, 0, s33]])
-        else:
-            s11, s22, s12 = expr[0, 0], expr[1, 1], expr[0, 1]
-            factor = (1 + nu_sym) / E_sym
-            e11 = sp.simplify(factor * ((1 - nu_sym) * s11 - nu_sym * s22))
-            e22 = sp.simplify(factor * ((1 - nu_sym) * s22 - nu_sym * s11))
-            e12 = sp.simplify(factor * s12)
-            return sp.Matrix([[e11, e12], [e12, e22]])
-    else:
-        # 3D isotropic
-        lam_val = (E_sym * nu_sym) / ((1 + nu_sym) * (1 - 2 * nu_sym))
-        mu_val = E_sym / (2 * (1 + nu_sym))
-        if direction == 'strain_to_stress':
-            tr_eps = sp.simplify(expr[0, 0] + expr[1, 1] + expr[2, 2])
-            sig = sp.zeros(3, 3)
-            for i in range(3):
-                for j in range(3):
-                    kronecker = 1 if i == j else 0
-                    sig[i, j] = sp.simplify(2 * mu_val * expr[i, j] + lam_val * tr_eps * kronecker)
-            return sig
-        else:
-            tr_sig = sp.simplify(expr[0, 0] + expr[1, 1] + expr[2, 2])
-            eps = sp.zeros(3, 3)
-            for i in range(3):
-                for j in range(3):
-                    kronecker = 1 if i == j else 0
-                    eps[i, j] = sp.simplify((expr[i, j] - (nu_sym / (1 + nu_sym)) * tr_sig * kronecker) / (2 * mu_val))
-            return eps
-
-def _mech_invariants(expr):
-    if not isinstance(expr, sp.MatrixBase):
-        if isinstance(expr, (list, tuple)) and len(expr) in (3, 6):
-            if len(expr) == 3:
-                expr = sp.Matrix([[expr[0], expr[2], 0], [expr[2], expr[1], 0], [0, 0, 0]])
-        else:
-            raise ValueError("Input must be a 2x2 or 3x3 stress Matrix or [sx, sy, txy].")
-    if expr.rows == 2:
-        expr = sp.Matrix([[expr[0, 0], expr[0, 1], 0], [expr[1, 0], expr[1, 1], 0], [0, 0, 0]])
-    I1 = sp.simplify(expr.trace())
-    sig_m = sp.simplify(I1 / 3)
-    S = sp.simplify(expr - sig_m * sp.eye(3))
-    I2 = sp.simplify(sp.Rational(1, 2) * (I1**2 - (expr**2).trace()))
-    I3 = sp.simplify(expr.det())
-    J2 = sp.simplify(sp.Rational(1, 2) * (S**2).trace())
-    J3 = sp.simplify(S.det())
-    sigma_vm = sp.simplify(sp.sqrt(3 * J2))
-    return {
-        'sigma': expr,
-        'I1': I1,
-        'I2': I2,
-        'I3': I3,
-        'S': S,
-        'J2': J2,
-        'J3': J3,
-        'sigma_vm': sigma_vm
-    }
-
-def _mech_airy(phi_expr, c_syms):
-    x_s, y_s = c_syms[0], c_syms[1]
-    sig_xx = sp.simplify(sp.diff(phi_expr, y_s, 2))
-    sig_yy = sp.simplify(sp.diff(phi_expr, x_s, 2))
-    tau_xy = sp.simplify(-sp.diff(phi_expr, x_s, y_s))
-    biharmonic = sp.simplify(sp.diff(phi_expr, x_s, 4) + 2 * sp.diff(phi_expr, x_s, 2, y_s, 2) + sp.diff(phi_expr, y_s, 4))
-    sig_mat = sp.Matrix([[sig_xx, tau_xy], [tau_xy, sig_yy]])
-    return {
-        'biharmonic': biharmonic,
-        'is_biharmonic': biharmonic == 0,
-        'stress_matrix': sig_mat
-    }
-
-def _mech_mohr(expr):
-    if isinstance(expr, sp.MatrixBase):
-        sig_x, sig_y, tau_xy = expr[0, 0], expr[1, 1], expr[0, 1]
-    elif isinstance(expr, (list, tuple)) and len(expr) >= 3:
-        sig_x, sig_y, tau_xy = expr[0], expr[1], expr[2]
-    else:
-        raise ValueError("Mohr's circle requires [sigma_x, sigma_y, tau_xy] or a 2x2 stress matrix.")
-    sig_avg = sp.simplify(sp.Rational(1, 2) * (sig_x + sig_y))
-    R = sp.simplify(sp.sqrt(sp.Rational(1, 4) * (sig_x - sig_y)**2 + tau_xy**2))
-    sig_1 = sp.simplify(sig_avg + R)
-    sig_2 = sp.simplify(sig_avg - R)
-    tau_max = R
-    theta_p = sp.simplify(sp.Rational(1, 2) * sp.atan2(2 * tau_xy, sig_x - sig_y))
-    return {
-        'sig_x': sig_x, 'sig_y': sig_y, 'tau_xy': tau_xy,
-        'sig_avg': sig_avg, 'R': R,
-        'sig_1': sig_1, 'sig_2': sig_2,
-        'tau_max': tau_max, 'theta_p': theta_p
-    }
-
-def _em_maxwell_check(fields_expr, c_syms, t_sym, rho_expr, J_expr):
-    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
-        E_vec = sp.Matrix(fields_expr.row(0))
-        B_vec = sp.Matrix(fields_expr.row(1))
-    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
-        E_vec = sp.Matrix(fields_expr[0])
-        B_vec = sp.Matrix(fields_expr[1])
-    else:
-        raise ValueError("Candidate EM fields must be provided as pair [E, B] of 3D vectors.")
-    eps_0 = sp.Symbol('epsilon_0', positive=True)
-    mu_0_sym = sp.Symbol('mu_0', positive=True)
-
-    div_E = sum(sp.diff(E_vec[i], c_syms[i]) for i in range(3))
-    div_B = sum(sp.diff(B_vec[i], c_syms[i]) for i in range(3))
-
-    curl_E = sp.Matrix([
-        sp.diff(E_vec[2], c_syms[1]) - sp.diff(E_vec[1], c_syms[2]),
-        sp.diff(E_vec[0], c_syms[2]) - sp.diff(E_vec[2], c_syms[0]),
-        sp.diff(E_vec[1], c_syms[0]) - sp.diff(E_vec[0], c_syms[1])
-    ])
-    curl_B = sp.Matrix([
-        sp.diff(B_vec[2], c_syms[1]) - sp.diff(B_vec[1], c_syms[2]),
-        sp.diff(B_vec[0], c_syms[2]) - sp.diff(B_vec[2], c_syms[0]),
-        sp.diff(B_vec[1], c_syms[0]) - sp.diff(B_vec[0], c_syms[1])
-    ])
-
-    dt_B = sp.Matrix([sp.diff(B_vec[i], t_sym) for i in range(3)])
-    dt_E = sp.Matrix([sp.diff(E_vec[i], t_sym) for i in range(3)])
-
-    res_gauss_E = sp.simplify(div_E - rho_expr / eps_0)
-    res_gauss_B = sp.simplify(div_B)
-    res_faraday = sp.simplify(curl_E + dt_B)
-    res_ampere = sp.simplify(curl_B - mu_0_sym * eps_0 * dt_E - mu_0_sym * sp.Matrix(J_expr))
-
-    return {
-        'gauss_E': {'res': res_gauss_E, 'ok': res_gauss_E == 0},
-        'gauss_B': {'res': res_gauss_B, 'ok': res_gauss_B == 0},
-        'faraday': {'res': res_faraday, 'ok': all(r == 0 for r in res_faraday)},
-        'ampere': {'res': res_ampere, 'ok': all(r == 0 for r in res_ampere)}
-    }
-
-def _em_potentials(A_vec, V_expr, c_syms, t_sym):
-    if not isinstance(A_vec, sp.MatrixBase):
-        A_vec = sp.Matrix(A_vec)
-    B_vec = sp.Matrix([
-        sp.diff(A_vec[2], c_syms[1]) - sp.diff(A_vec[1], c_syms[2]),
-        sp.diff(A_vec[0], c_syms[2]) - sp.diff(A_vec[2], c_syms[0]),
-        sp.diff(A_vec[1], c_syms[0]) - sp.diff(A_vec[0], c_syms[1])
-    ])
-    grad_V = sp.Matrix([sp.diff(V_expr, c) for c in c_syms])
-    dt_A = sp.Matrix([sp.diff(A_vec[i], t_sym) for i in range(3)])
-    E_vec = sp.simplify(-grad_V - dt_A)
-    return {'E': E_vec, 'B': sp.simplify(B_vec)}
-
-def _em_gauge(A_vec, V_expr, c_syms, t_sym, c_speed):
-    if not isinstance(A_vec, sp.MatrixBase):
-        A_vec = sp.Matrix(A_vec)
-    div_A = sp.simplify(sum(sp.diff(A_vec[i], c_syms[i]) for i in range(3)))
-    dt_V = sp.diff(V_expr, t_sym)
-    lorenz_res = sp.simplify(div_A + (sp.Integer(1) / (c_speed**2)) * dt_V)
-    coulomb_res = div_A
-    return {
-        'lorenz_ok': lorenz_res == 0,
-        'lorenz_res': lorenz_res,
-        'coulomb_ok': coulomb_res == 0,
-        'coulomb_res': coulomb_res
-    }
-
-def _em_poynting(fields_expr):
-    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
-        E_vec = fields_expr.row(0)
-        B_vec = fields_expr.row(1)
-    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
-        E_vec = fields_expr[0]
-        B_vec = fields_expr[1]
-    else:
-        raise ValueError("Poynting computation requires pair [E, B] of 3D vectors.")
-    mu_0_sym = sp.Symbol('mu_0', positive=True)
-    eps_0 = sp.Symbol('epsilon_0', positive=True)
-    sx = (E_vec[1] * B_vec[2] - E_vec[2] * B_vec[1]) / mu_0_sym
-    sy = (E_vec[2] * B_vec[0] - E_vec[0] * B_vec[2]) / mu_0_sym
-    sz = (E_vec[0] * B_vec[1] - E_vec[1] * B_vec[0]) / mu_0_sym
-    S_vec = sp.Matrix([sp.simplify(sx), sp.simplify(sy), sp.simplify(sz)])
-    E_sq = sum(E_vec[i]**2 for i in range(3))
-    B_sq = sum(B_vec[i]**2 for i in range(3))
-    u_dens = sp.simplify(sp.Rational(1, 2) * eps_0 * E_sq + sp.Rational(1, 2) * (sp.Integer(1) / mu_0_sym) * B_sq)
-    g_mom = sp.simplify(eps_0 * mu_0_sym * S_vec)
-    return {'S': S_vec, 'u': u_dens, 'g': g_mom}
-
-def _em_stress_tensor(fields_expr, c_syms):
-    if isinstance(fields_expr, sp.MatrixBase) and fields_expr.rows == 2 and fields_expr.cols == 3:
-        E_vec = fields_expr.row(0)
-        B_vec = fields_expr.row(1)
-    elif isinstance(fields_expr, (list, tuple)) and len(fields_expr) == 2:
-        E_vec = fields_expr[0]
-        B_vec = fields_expr[1]
-    else:
-        raise ValueError("Maxwell stress tensor requires pair [E, B] of 3D vectors.")
-    eps_0 = sp.Symbol('epsilon_0', positive=True)
-    mu_0_sym = sp.Symbol('mu_0', positive=True)
-    E_sq = sum(E_vec[i]**2 for i in range(3))
-    B_sq = sum(B_vec[i]**2 for i in range(3))
-    T = sp.zeros(3, 3)
-    for i in range(3):
-        for j in range(3):
-            delta_ij = 1 if i == j else 0
-            e_part = eps_0 * (E_vec[i] * E_vec[j] - sp.Rational(1, 2) * delta_ij * E_sq)
-            b_part = (sp.Integer(1) / mu_0_sym) * (B_vec[i] * B_vec[j] - sp.Rational(1, 2) * delta_ij * B_sq)
-            T[i, j] = sp.simplify(e_part + b_part)
-    f_vec = sp.Matrix([sp.simplify(sum(sp.diff(T[i, j], c_syms[j]) for j in range(3))) for i in range(3)])
-    return {'T': T, 'f': f_vec}
-
-def _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx, param_overrides=None):
-    transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
-
-    if op == 'plot_2d':
-        v_name = params.get('var', 'x').strip() or 'x'
-        v_sym = loc.get(v_name, sp.Symbol(v_name))
-        if not isinstance(v_sym, sp.Symbol):
-            v_sym = sp.Symbol(v_name)
-        xmin = float(sp.N(parse_expr(str(params.get('xmin', '-10')), local_dict=loc)))
-        xmax = float(sp.N(parse_expr(str(params.get('xmax', '10')), local_dict=loc)))
-        n_pts = max(50, min(1500, int(params.get('points', 400) or 400)))
-
-        # Support multi-curve overlays from params['overlay'] or semicolon-separated input
-        curve_exprs = [expr.rhs if isinstance(expr, sp.Equality) else expr]
-        overlay_raw = str(params.get('overlay', '')).strip()
-        if overlay_raw:
-            for part in re.split(r'[;,]', overlay_raw):
-                if part.strip():
-                    ov_e, _ = parse_math_input(part.strip(), latest_idx)
-                    if isinstance(ov_e, sp.Equality):
-                        ov_e = ov_e.rhs
-                    curve_exprs.append(ov_e)
-
-        bound_curves, slider_meta = _detect_and_bind_free_params(curve_exprs, [v_sym], param_overrides)
-        labels_raw = [l.strip() for l in str(params.get('labels', '')).split(',') if l.strip()]
-
-        step = (xmax - xmin) / (n_pts - 1)
-        xs = [xmin + i * step for i in range(n_pts)]
-        traces_out = []
-        for idx_c, c_ex in enumerate(bound_curves):
-            fn_num = sp.lambdify(v_sym, c_ex, modules=['math'])
-            ys = []
-            for xv in xs:
-                try:
-                    yv = fn_num(xv)
-                    if isinstance(yv, complex) or math.isnan(yv) or math.isinf(yv):
-                        ys.append(None)
-                    else:
-                        ys.append(float(yv))
-                except Exception:
-                    ys.append(None)
-            lbl = labels_raw[idx_c] if idx_c < len(labels_raw) else f"f{idx_c+1}({v_name}) = {sp.latex(curve_exprs[idx_c])}"
-            traces_out.append({'y': ys, 'name': lbl})
-
-        sympy_code_shown = f"f_num = sp.lambdify({v_sym}, {repr(curve_exprs[0])}, 'math')  # Domain [{xmin}, {xmax}]"
-        return {
-            'type': '2d',
-            'x': xs,
-            'y': traces_out[0]['y'],
-            'traces': traces_out,
-            'var': v_name,
-            'title': f"y({v_name}) = {sp.latex(curve_exprs[0])}",
-            'sliderParams': slider_meta
-        }, sympy_code_shown
-
-    elif op == 'plot_parametric':
-        v_name = params.get('var', 't').strip() or 't'
-        v_sym = loc.get(v_name, sp.Symbol(v_name))
-        if not isinstance(v_sym, sp.Symbol):
-            v_sym = sp.Symbol(v_name)
-        tmin = float(sp.N(parse_expr(str(params.get('tmin', '0')), local_dict=loc)))
-        tmax = float(sp.N(parse_expr(str(params.get('tmax', '2*pi')), local_dict=loc)))
-        n_pts = max(50, min(1500, int(params.get('points', 400) or 400)))
-
-        if isinstance(expr, sp.MatrixBase) and len(expr) >= 2:
-            xt_expr, yt_expr = expr[0], expr[1]
-        else:
-            xt_expr = expr.rhs if isinstance(expr, sp.Equality) else expr
-            yt_raw = str(params.get('yt', 'sin(t)')).strip() or 'sin(t)'
-            yt_expr, _ = parse_math_input(yt_raw, latest_idx)
-            if isinstance(yt_expr, sp.Equality):
-                yt_expr = yt_expr.rhs
-
-        bound_xy, slider_meta = _detect_and_bind_free_params([xt_expr, yt_expr], [v_sym], param_overrides)
-        fn_x = sp.lambdify(v_sym, bound_xy[0], modules=['math'])
-        fn_y = sp.lambdify(v_sym, bound_xy[1], modules=['math'])
-
-        step = (tmax - tmin) / (n_pts - 1)
-        ts = [tmin + i * step for i in range(n_pts)]
-        xs, ys = [], []
-        for tv in ts:
-            try:
-                xv = fn_x(tv)
-                yv = fn_y(tv)
-                if isinstance(xv, complex) or isinstance(yv, complex) or math.isnan(xv) or math.isnan(yv):
-                    xs.append(None)
-                    ys.append(None)
-                else:
-                    xs.append(float(xv))
-                    ys.append(float(yv))
-            except Exception:
-                xs.append(None)
-                ys.append(None)
-
-        sympy_code_shown = f"fx, fy = sp.lambdify({v_sym}, {repr(xt_expr)}, 'math'), sp.lambdify({v_sym}, {repr(yt_expr)}, 'math')"
-        return {
-            'type': 'parametric',
-            'x': xs,
-            'y': ys,
-            'var': v_name,
-            'xlab': f"x({v_name})",
-            'ylab': f"y({v_name})",
-            'title': f"Parametric Curve: x({v_name}) = {sp.latex(xt_expr)}, y({v_name}) = {sp.latex(yt_expr)}",
-            'sliderParams': slider_meta
-        }, sympy_code_shown
-
-    elif op in ('plot_vector_2d', 'em_field_plot'):
-        xmin = float(sp.N(parse_expr(str(params.get('xmin', '-5' if op == 'em_field_plot' else '-4')), local_dict=loc)))
-        xmax = float(sp.N(parse_expr(str(params.get('xmax', '5' if op == 'em_field_plot' else '4')), local_dict=loc)))
-        ymin = float(sp.N(parse_expr(str(params.get('ymin', '-5' if op == 'em_field_plot' else '-4')), local_dict=loc)))
-        ymax = float(sp.N(parse_expr(str(params.get('ymax', '5' if op == 'em_field_plot' else '4')), local_dict=loc)))
-        grid_n = max(6, min(30, int(params.get('grid', 16 if op == 'em_field_plot' else 15) or 15)))
-
-        x_sym = loc.get('x', sp.Symbol('x'))
-        y_sym = loc.get('y', sp.Symbol('y'))
-        if isinstance(expr, sp.MatrixBase) and len(expr) >= 2:
-            fx_expr, fy_expr = expr[0], expr[1]
-            vec_label = f"F(x,y) = [{sp.latex(fx_expr)}, {sp.latex(fy_expr)}]"
-        else:
-            # Scalar potential phi(x,y) -> auto-compute gradient nabla(phi)
-            fx_expr = sp.diff(expr, x_sym)
-            fy_expr = sp.diff(expr, y_sym)
-            vec_label = f"∇φ(x,y) = [{sp.latex(fx_expr)}, {sp.latex(fy_expr)}]"
-
-        bound_fxy, slider_meta = _detect_and_bind_free_params([fx_expr, fy_expr], [x_sym, y_sym], param_overrides)
-        fn_fx = sp.lambdify((x_sym, y_sym), bound_fxy[0], modules=['math'])
-        fn_fy = sp.lambdify((x_sym, y_sym), bound_fxy[1], modules=['math'])
-
-        xs = [xmin + i * (xmax - xmin) / (grid_n - 1) for i in range(grid_n)]
-        ys = [ymin + j * (ymax - ymin) / (grid_n - 1) for j in range(grid_n)]
-        cell_scale = 0.38 * min((xmax - xmin) / max(1, grid_n - 1), (ymax - ymin) / max(1, grid_n - 1))
-
-        pts_raw = []
-        max_mag = 1e-9
-        for yv in ys:
-            for xv in xs:
-                try:
-                    u = float(fn_fx(xv, yv))
-                    v = float(fn_fy(xv, yv))
-                    if math.isnan(u) or math.isnan(v) or math.isinf(u) or math.isinf(v):
-                        continue
-                    mag = math.hypot(u, v)
-                    if mag > max_mag:
-                        max_mag = mag
-                    pts_raw.append((xv, yv, u, v, mag))
-                except Exception:
-                    pass
-
-        quiver_x = []
-        quiver_y = []
-        for (xv, yv, u, v, mag) in pts_raw:
-            if mag < 1e-12:
-                continue
-            # Log-damped scaling so both strong and weak regions are clearly visible
-            norm_scale = cell_scale * (0.35 + 0.65 * (mag / max_mag)**0.5) / mag
-            dx = u * norm_scale
-            dy = v * norm_scale
-            x1 = xv + dx
-            y1 = yv + dy
-            # Arrowhead barbs
-            ang = math.atan2(dy, dx)
-            head_len = 0.28 * math.hypot(dx, dy)
-            hx1 = x1 - head_len * math.cos(ang - 0.45)
-            hy1 = y1 - head_len * math.sin(ang - 0.45)
-            hx2 = x1 - head_len * math.cos(ang + 0.45)
-            hy2 = y1 - head_len * math.sin(ang + 0.45)
-            quiver_x.extend([xv, x1, None, hx1, x1, hx2, None])
-            quiver_y.extend([yv, y1, None, hy1, y1, hy2, None])
-
-        sympy_code_shown = f"Fx, Fy = sp.lambdify((x, y), {repr(fx_expr)}, 'math'), sp.lambdify((x, y), {repr(fy_expr)}, 'math')"
-        title_str = f"2D Vector Field Quiver: {vec_label}"
-        if op == 'em_field_plot':
-            div_val = sp.simplify(sp.diff(fx_expr, x_sym) + sp.diff(fy_expr, y_sym))
-            curl_val = sp.simplify(sp.diff(fy_expr, x_sym) - sp.diff(fx_expr, y_sym))
-            title_str = f"EM Field Quiver: {vec_label} | ∇·F = {sp.latex(div_val)}, (∇×F)_z = {sp.latex(curl_val)}"
-        return {
-            'type': 'vector_2d',
-            'quiverX': quiver_x,
-            'quiverY': quiver_y,
-            'xmin': xmin, 'xmax': xmax, 'ymin': ymin, 'ymax': ymax,
-            'title': title_str,
-            'sliderParams': slider_meta
-        }, sympy_code_shown
-
-    else:
-        # plot_3d
-        xmin = float(sp.N(parse_expr(str(params.get('xmin', '-5')), local_dict=loc)))
-        xmax = float(sp.N(parse_expr(str(params.get('xmax', '5')), local_dict=loc)))
-        ymin = float(sp.N(parse_expr(str(params.get('ymin', '-5')), local_dict=loc)))
-        ymax = float(sp.N(parse_expr(str(params.get('ymax', '5')), local_dict=loc)))
-        grid_n = 45
-
-        x_sym = loc.get('x', sp.Symbol('x'))
-        y_sym = loc.get('y', sp.Symbol('y'))
-        z_expr = expr.rhs if isinstance(expr, sp.Equality) else expr
-        bound_z, slider_meta = _detect_and_bind_free_params([z_expr], [x_sym, y_sym], param_overrides)
-
-        fn_3d = sp.lambdify((x_sym, y_sym), bound_z[0], modules=['math'])
-        xs = [xmin + i * (xmax - xmin) / (grid_n - 1) for i in range(grid_n)]
-        ys = [ymin + j * (ymax - ymin) / (grid_n - 1) for j in range(grid_n)]
-        zs = []
-        for yv in ys:
-            row = []
-            for xv in xs:
-                try:
-                    zv = fn_3d(xv, yv)
-                    if isinstance(zv, complex) or math.isnan(zv) or math.isinf(zv):
-                        row.append(None)
-                    else:
-                        row.append(float(zv))
-                except Exception:
-                    row.append(None)
-            zs.append(row)
-
-        sympy_code_shown = f"f_3d = sp.lambdify((x, y), {repr(z_expr)}, 'math')  # Grid {grid_n}x{grid_n}"
-        return {
-            'type': '3d',
-            'x': xs,
-            'y': ys,
-            'z': zs,
-            'title': f"z(x,y) = {sp.latex(z_expr)}",
-            'sliderParams': slider_meta
-        }, sympy_code_shown
-
-def recompute_plot_with_params(payload_json):
-    data = json.loads(payload_json)
-    raw_latex = data.get('latex', '').strip()
-    op = data.get('operation', 'plot_2d')
-    params = data.get('params', {})
-    param_values = data.get('paramValues', {})
-    latest_idx = max(out_history.keys()) if out_history else None
-    try:
-        loc = get_eval_locals()
-        loc['_out_ref'] = _out_ref
-        expr, _ = parse_math_input(raw_latex, latest_idx)
-        plot_data, _ = _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx, param_values)
-        return json.dumps({'status': 'ok', 'plotData': plot_data})
-    except Exception as exc:
-        return json.dumps({'status': 'error', 'message': str(exc)})
-
-_CODE_TRANSFORMS = standard_transformations + (implicit_multiplication_application, convert_xor)
-
-def _expr_to_pycode(expr_str, loc, decl_syms, decl_funcs):
-    """Turn a (possibly implicit-multiplication) math string into valid Python/SymPy source.
-    Records free symbols / undefined functions that must be declared in the generated script."""
-    expr_str = (expr_str or '').strip()
-    if not expr_str:
-        return '0'
-    # Keep calculus operations unevaluated so the generated script shows the operation itself
-    loc = dict(loc)
-    loc.update({'integrate': sp.Integral, 'diff': sp.Derivative, 'limit': sp.Limit,
-                'summation': sp.Sum, 'product': sp.Product})
-    try:
-        parsed = parse_expr(expr_str, local_dict=dict(loc), transformations=_CODE_TRANSFORMS, evaluate=False)
-    except Exception:
-        try:
-            parsed = parse_expr(expr_str, local_dict=dict(loc), transformations=_CODE_TRANSFORMS)
-        except Exception:
-            return expr_str
-    try:
-        basic = sp.sympify(parsed)
-        for s_obj in basic.free_symbols:
-            nm = str(s_obj)
-            if nm not in loc or loc.get(nm) is not s_obj:
-                decl_syms.add(nm)
-        for f_obj in basic.atoms(sp.core.function.AppliedUndef):
-            fnm = str(f_obj.func)
-            if fnm not in loc:
-                decl_funcs.add(fnm)
-    except Exception:
-        pass
-    code_out = str(parsed)
-    for uneval_nm, call_nm in (('Integral(', 'sp.integrate('), ('Derivative(', 'sp.diff('), ('Limit(', 'sp.limit('),
-                               ('Sum(', 'sp.summation('), ('Product(', 'sp.product(')):
-        code_out = re.sub(r'(?<![A-Za-z_.])' + re.escape(uneval_nm), call_nm, code_out)
-    return code_out
-
-def convert_visual_to_sympy_code(payload_json):
-    data = json.loads(payload_json)
-    raw_latex = data.get('latex', '').strip()
-    op = data.get('operation', 'eval')
-    params = data.get('params', {})
-    assign_to = data.get('assignTo', '').strip()
-    latest_idx = max(out_history.keys()) if out_history else None
-
-    cleaned = latex_to_sympy_str(raw_latex, latest_idx) if raw_latex else '0'
-    loc = get_eval_locals()
-    loc['_out_ref'] = _out_ref
-    decl_syms, decl_funcs = set(), set()
-
-    def pc(s, extra_loc=None):
-        use_loc = dict(loc)
-        if extra_loc:
-            use_loc.update(extra_loc)
-        return _expr_to_pycode(s, use_loc, decl_syms, decl_funcs)
-
-    def p_latex(v):
-        return pc(latex_to_sympy_str(str(v), latest_idx))
-
-    body = []
-    lhs = assign_to if assign_to else "result"
-    func_def = re.match(r'^([a-zA-Z][a-zA-Z0-9_]*)\s*\(([a-zA-Z0-9_,\s]+)\)\s*=(?!=)\s*(.+)$', cleaned)
-    var_def = re.match(r'^([a-zA-Z][a-zA-Z0-9_]*)\s*=(?!=)\s*(.+)$', cleaned)
-
-    if op == 'eval' and func_def:
-        fn_name = func_def.group(1)
-        arg_names = [a.strip() for a in func_def.group(2).split(',') if a.strip()]
-        extra = {a: loc[a] if isinstance(loc.get(a), sp.Symbol) else sp.Symbol(a) for a in arg_names}
-        for a in arg_names:
-            if not isinstance(loc.get(a), sp.Symbol):
-                decl_syms.add(a)
-        rhs_code = pc(func_def.group(3), extra)
-        arg_tuple = '(' + ', '.join(arg_names) + (',)' if len(arg_names) == 1 else ')')
-        body.append(fn_name + " = sp.Lambda(" + arg_tuple + ", " + rhs_code + ")")
-        body.append("result = " + fn_name + "(" + ', '.join(arg_names) + ")")
-    elif var_def:
-        v_nm = var_def.group(1).strip()
-        rhs_c = var_def.group(2).strip()
-        if op == 'eval':
-            body.append(v_nm + " = " + pc(rhs_c))
-        elif op == 'diff':
-            v = params.get('var', 'x').strip() or 'x'
-            n_ord = str(params.get('order', '1')).strip() or '1'
-            body.append(v_nm + " = sp.diff(" + pc(rhs_c) + ", " + pc(v) + ", " + n_ord + ")")
-        elif op == 'integrate_indef':
-            v = params.get('var', 'x').strip() or 'x'
-            body.append(v_nm + " = sp.integrate(" + pc(rhs_c) + ", " + pc(v) + ")")
-        elif op == 'integrate_def':
-            v = params.get('var', 'x').strip() or 'x'
-            body.append(v_nm + " = sp.integrate(" + pc(rhs_c) + ", (" + pc(v) + ", " + p_latex(params.get('lower', '0')) + ", " + p_latex(params.get('upper', 'pi')) + "))")
-        elif op in ('simplify', 'expand', 'factor', 'trigsimp'):
-            body.append(v_nm + " = sp." + op + "(" + pc(rhs_c) + ")")
-        elif op == 'apart':
-            v = params.get('var', 'x').strip() or 'x'
-            body.append(v_nm + " = sp.apart(" + pc(rhs_c) + ", " + pc(v) + ")")
-        elif op == 'solve':
-            v = params.get('var', 'x').strip() or 'x'
-            body.append("eq = sp.Eq(sp.Symbol('" + v_nm + "'), " + pc(rhs_c) + ")")
-            body.append(lhs + " = sp.solve(eq, " + pc(v) + ")")
-        else:
-            body.append(v_nm + " = " + pc(rhs_c))
-        if not any(ln.startswith('result =') for ln in body):
-            body.append("result = " + v_nm)
-    elif op == 'eval':
-        body.append(lhs + " = " + pc(cleaned))
-    elif op == 'diff':
-        v = params.get('var', 'x').strip() or 'x'
-        n_ord = str(params.get('order', '1')).strip() or '1'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.diff(expr, " + pc(v) + ", " + n_ord + ")")
-    elif op == 'integrate_indef':
-        v = params.get('var', 'x').strip() or 'x'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.integrate(expr, " + pc(v) + ")")
-    elif op == 'integrate_def':
-        v = params.get('var', 'x').strip() or 'x'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.integrate(expr, (" + pc(v) + ", " + p_latex(params.get('lower', '0')) + ", " + p_latex(params.get('upper', 'pi')) + "))")
-    elif op == 'limit':
-        v = params.get('var', 'x').strip() or 'x'
-        d = params.get('dir', '+-')
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.limit(expr, " + pc(v) + ", " + p_latex(params.get('point', '0')) + ", dir='" + d + "')")
-    elif op == 'series':
-        v = params.get('var', 'x').strip() or 'x'
-        n_ord = str(params.get('order', '6')).strip() or '6'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.series(expr, " + pc(v) + ", " + p_latex(params.get('point', '0')) + ", " + n_ord + ")")
-    elif op == 'sum':
-        v = params.get('var', 'n').strip() or 'n'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.summation(expr, (" + pc(v) + ", " + p_latex(params.get('lower', '1')) + ", " + p_latex(params.get('upper', 'oo')) + "))")
-    elif op == 'solve':
-        v = params.get('var', 'x').strip() or 'x'
-        if '=' in cleaned and '==' not in cleaned:
-            l_s, r_s = cleaned.split('=', 1)
-            body.append("eq = sp.Eq(" + pc(l_s) + ", " + pc(r_s) + ")")
-        else:
-            body.append("eq = " + pc(cleaned))
-        body.append(lhs + " = sp.solve(eq, " + pc(v) + ")")
-    elif op in ('simplify', 'expand', 'factor', 'trigsimp'):
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp." + op + "(expr)")
-    elif op == 'apart':
-        v = params.get('var', 'x').strip() or 'x'
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = sp.apart(expr, " + pc(v) + ")")
-    elif op in ('curv_grad', 'vec_grad'):
-        sys_val = params.get('system', 'cartesian')
-        c_raw = params.get('coords', 'x, y, z')
-        body.append(f"# Curvilinear Gradient in {sys_val} coordinates ({c_raw})")
-        body.append("phi = " + pc(cleaned))
-        body.append(lhs + f" = _curv_grad(phi, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op in ('curv_div', 'vec_div'):
-        sys_val = params.get('system', 'cartesian')
-        c_raw = params.get('coords', 'x, y, z')
-        body.append(f"# Curvilinear Divergence in {sys_val} coordinates ({c_raw})")
-        body.append("F = " + pc(cleaned))
-        body.append(lhs + f" = _curv_div(F, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op in ('curv_curl', 'vec_curl'):
-        sys_val = params.get('system', 'cartesian')
-        c_raw = params.get('coords', 'x, y, z')
-        body.append(f"# Curvilinear Curl in {sys_val} coordinates ({c_raw})")
-        body.append("F = " + pc(cleaned))
-        body.append(lhs + f" = _curv_curl(F, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op in ('curv_laplacian', 'vec_laplacian'):
-        sys_val = params.get('system', 'cartesian')
-        c_raw = params.get('coords', 'x, y, z')
-        body.append(f"# Curvilinear Laplacian in {sys_val} coordinates ({c_raw})")
-        body.append("phi = " + pc(cleaned))
-        body.append(lhs + f" = _curv_laplacian(phi, system='{sys_val}', c_syms=[sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op == 'mech_strain':
-        c_raw = params.get('coords', 'x, y, z')
-        body.append(f"# Small-strain tensor derivation from displacement u({c_raw})")
-        body.append("u = " + pc(cleaned))
-        body.append(lhs + f" = _mech_strain(u, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op == 'mech_compat':
-        c_raw = params.get('coords', 'x, y, z')
-        body.append("# Saint-Venant strain compatibility test: inc(eps) = 0")
-        body.append("eps = " + pc(cleaned))
-        body.append(lhs + f" = _mech_compat(eps, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])")
-    elif op == 'mech_hooke':
-        st = params.get('state', 'plane_stress')
-        dr = params.get('direction', 'strain_to_stress')
-        body.append(f"# Constitutive Hooke's Law: {st} ({dr})")
-        body.append("tensor_in = " + pc(cleaned))
-        body.append(lhs + f" = _mech_hooke(tensor_in, state='{st}', direction='{dr}', E_sym=sp.Symbol('{params.get('E', 'E')}'), nu_sym=sp.Symbol('{params.get('nu', 'nu')}'))")
-    elif op == 'mech_invariants':
-        body.append("# Stress Invariants, Deviatoric Tensor & von Mises yield stress")
-        body.append("sig = " + pc(cleaned))
-        body.append(lhs + " = _mech_invariants(sig)['sigma_vm']")
-    elif op == 'mech_airy':
-        c_raw = params.get('coords', 'x, y')
-        body.append("# Airy Stress Function: Biharmonic check & Cauchy stress recovery")
-        body.append("phi = " + pc(cleaned))
-        body.append(lhs + f" = _mech_airy(phi, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])['stress_matrix']")
-    elif op == 'mech_mohr':
-        body.append("# Mohr's Circle Principal Stresses (sigma_1, sigma_2, tau_max)")
-        body.append("stress_input = " + pc(cleaned))
-        body.append("mohr_data = _mech_mohr(stress_input)")
-        body.append(lhs + " = sp.Matrix([mohr_data['sig_1'], mohr_data['sig_2'], mohr_data['tau_max']])")
-    elif op == 'em_maxwell_check':
-        c_raw = params.get('coords', 'x, y, z')
-        t_nm = params.get('time', 't')
-        body.append(f"# Maxwell's Equations Verifier across coords ({c_raw}) and time {t_nm}")
-        body.append("fields = " + pc(cleaned))
-        body.append(lhs + f" = _em_maxwell_check(fields, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'), rho_expr=sp.sympify({repr(params.get('rho', '0'))}), J_expr=sp.sympify({repr(params.get('J', '[0, 0, 0]'))}))")
-    elif op == 'em_potentials':
-        c_raw = params.get('coords', 'x, y, z')
-        t_nm = params.get('time', 't')
-        body.append("# Electromagnetic Fields derived from Vector Potential A and Scalar Potential V")
-        body.append("A = " + pc(cleaned))
-        body.append("V = " + p_latex(params.get('V', '0')))
-        body.append(lhs + f" = _em_potentials(A, V, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'))")
-    elif op == 'em_gauge':
-        c_raw = params.get('coords', 'x, y, z')
-        t_nm = params.get('time', 't')
-        c_sp = params.get('c', 'c')
-        body.append("# Lorenz & Coulomb gauge condition verification")
-        body.append("A = " + pc(cleaned))
-        body.append("V = " + p_latex(params.get('V', '0')))
-        body.append(lhs + f" = _em_gauge(A, V, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()], sp.Symbol('{t_nm}'), sp.Symbol('{c_sp}'))")
-    elif op == 'em_poynting':
-        body.append("# Poynting Energy Flux S = (1/mu_0)(E x B)")
-        body.append("fields = " + pc(cleaned))
-        body.append(lhs + " = _em_poynting(fields)['S']")
-    elif op == 'em_stress_tensor':
-        c_raw = params.get('coords', 'x, y, z')
-        body.append("# Maxwell Stress Tensor T_ij and Force Density")
-        body.append("fields = " + pc(cleaned))
-        body.append(lhs + f" = _em_stress_tensor(fields, [sp.Symbol(c.strip()) for c in '{c_raw}'.split(',') if c.strip()])['T']")
-    else:
-        body.append("expr = " + pc(cleaned))
-        body.append(lhs + " = expr")
-
-    if lhs != 'result' and not any(ln.startswith('result =') for ln in body):
-        body.append("result = " + lhs)
-
-    lines = ["# Converted from Visual Math Mode"]
-    if decl_syms:
-        names_sorted = sorted(decl_syms)
-        if len(names_sorted) == 1:
-            lines.append(names_sorted[0] + " = sp.Symbol('" + names_sorted[0] + "')")
-        else:
-            lines.append(', '.join(names_sorted) + " = sp.symbols('" + ' '.join(names_sorted) + "')")
-    for fnm in sorted(decl_funcs):
-        lines.append(fnm + " = sp.Function('" + fnm + "')")
-    lines.extend(body)
-    return json.dumps({'status': 'ok', 'code': '\n'.join(lines)})
-
-
-# ---------------------------------------------------------------------------
-# Forgiving code-cell preprocessing (math-style f(x) = ... and implicit products)
-# ---------------------------------------------------------------------------
-_FUNC_DEF_LINE = re.compile(r'^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*\)\s*=(?!=)\s*(.+)$')
-_SIMPLE_ASSIGN_LINE = re.compile(r'^(\s*)([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*=(?!=)\s*(.+)$')
-
-def _make_lambda(names, body_fn, ns):
-    syms = []
-    for a_nm in names:
-        cur = ns.get(a_nm)
-        syms.append(cur if isinstance(cur, sp.Symbol) else sp.Symbol(a_nm))
-    return sp.Lambda(tuple(syms), sp.sympify(body_fn(*syms)))
-
-def _pe(src, ns):
-    loc = {k: v for k, v in ns.items() if not k.startswith('__')}
-    return parse_expr(src, local_dict=loc, transformations=_CODE_TRANSFORMS)
-
-def _line_parses(src):
-    try:
-        ast.parse(src.strip() or 'pass')
-        return True
-    except SyntaxError:
-        return False
-
-def _bracket_delta(src):
-    depth = 0
-    quote = None
-    i = 0
-    while i < len(src):
-        ch = src[i]
-        if quote:
-            if ch == '\\':
-                i += 2
-                continue
-            if ch == quote:
-                quote = None
-        elif ch in ('"', "'"):
-            quote = ch
-        elif ch == '#':
-            break
-        elif ch in '([{':
-            depth += 1
-        elif ch in ')]}':
-            depth -= 1
-        i += 1
-    return depth
-
-def _preprocess_user_code(code_str):
-    # Valid Python is never touched; only rescue code that fails to parse
-    try:
-        ast.parse(code_str)
-        return code_str
-    except SyntaxError:
-        pass
-    out_lines = []
-    depth = 0
-    for line in code_str.split('\n'):
-        stripped = line.strip()
-        at_top = depth <= 0
-        depth += _bracket_delta(line)
-        if not at_top or not stripped or stripped.startswith('#'):
-            out_lines.append(line)
-            continue
-        fm = _FUNC_DEF_LINE.match(line)
-        if fm and not _line_parses(line):
-            ind, nm, args, rhs = fm.groups()
-            arg_list = [a.strip() for a in args.split(',')]
-            rhs_src = rhs if _line_parses(rhs) else "_pe(" + repr(rhs) + ", dict(globals(), **{" + ', '.join(repr(a) + ': ' + a for a in arg_list) + "}))"
-            out_lines.append(ind + nm + " = _make_lambda(" + repr(arg_list) + ", lambda " + ', '.join(arg_list) + ": " + rhs_src + ", globals())")
-            continue
-        am = _SIMPLE_ASSIGN_LINE.match(line)
-        if am and not _line_parses(line):
-            ind, tgt, rhs = am.groups()
-            if not _line_parses(rhs):
-                out_lines.append(ind + tgt + " = _pe(" + repr(rhs) + ", globals())")
-                continue
-        out_lines.append(line)
-    return '\n'.join(out_lines)
-
-# ---------------------------------------------------------------------------
-# Live "Visual Math" preview of a code cell (unevaluated, side-effect free)
-# ---------------------------------------------------------------------------
-_PREVIEW_UNEVAL = {'integrate': 'Integral', 'diff': 'Derivative', 'limit': 'Limit', 'summation': 'Sum', 'product': 'Product'}
-_PREVIEW_HEAVY = {
-    'solve', 'dsolve', 'simplify', 'expand', 'factor', 'trigsimp', 'apart', 'series', 'nsolve', 'solveset',
-    'linsolve', 'nonlinsolve', 'eigenvals', 'eigenvects', 'lambdify', 'plot', 'fourier_series',
-    'laplace_transform', 'inverse_laplace_transform', 'nsimplify', 'together', 'cancel', 'collect',
-    'powsimp', 'ratsimp', 'det', 'inv', 'doit', 'charpoly', 'roots', 'expand_trig', 'pde_solve', 'pdsolve',
-    'diagonalize', 'rref', 'nullspace', 'integrate', 'diff', 'limit', 'summation', 'product', 'radsimp'
-}
-
-def _pv_call(name, *args, **kwargs):
-    conv = []
-    for a_v in args:
-        if isinstance(a_v, (list, tuple)):
-            conv.append(sp.Tuple(*[sp.sympify(i) for i in a_v]))
-        else:
-            conv.append(sp.sympify(a_v))
-    return sp.Function(name)(*conv)
-
-class _PreviewTransformer(ast.NodeTransformer):
-    def visit_Call(self, node):
-        self.generic_visit(node)
-        fn = node.func
-        fname = None
-        is_method = False
-        if isinstance(fn, ast.Name):
-            fname = fn.id
-        elif isinstance(fn, ast.Attribute):
-            fname = fn.attr
-            is_method = not (isinstance(fn.value, ast.Name) and fn.value.id in ('sp', 'sympy'))
-        if not fname:
-            return node
-        if fname in _PREVIEW_UNEVAL and not is_method:
-            node.func = ast.Attribute(value=ast.Name(id='sp', ctx=ast.Load()), attr=_PREVIEW_UNEVAL[fname], ctx=ast.Load())
-            return node
-        if fname in _PREVIEW_HEAVY:
-            new_args = [ast.Constant(value=fname)]
-            if is_method:
-                new_args.append(fn.value)
-            new_args.extend(node.args)
-            return ast.Call(func=ast.Name(id='_pv_call', ctx=ast.Load()), args=new_args, keywords=[])
-        return node
-
-def _is_symbol_decl(val, names):
-    if isinstance(val, sp.Symbol):
-        return True
-    if isinstance(val, (list, tuple)) and val and all(isinstance(v, (sp.Symbol, sp.core.function.UndefinedFunction)) for v in val):
-        return True
-    if isinstance(val, sp.core.function.UndefinedFunction):
-        return True
-    return False
-
-def _preview_value_latex(val):
-    if val is None or callable(val) and not isinstance(val, (sp.Basic, sp.MatrixBase)):
-        return None
-    if isinstance(val, (sp.Basic, sp.MatrixBase)):
-        return sp.latex(val)
-    if isinstance(val, (int, float)) and not isinstance(val, bool):
-        return sp.latex(sp.sympify(val))
-    if isinstance(val, (list, tuple, dict)):
-        try:
-            return sp.latex(sp.sympify(val))
-        except Exception:
-            return None
-    return None
-
-def _target_latex(tgt):
-    if isinstance(tgt, ast.Name):
-        return sp.latex(sp.Symbol(tgt.id))
-    if isinstance(tgt, (ast.Tuple, ast.List)):
-        parts = [_target_latex(e) for e in tgt.elts]
-        if any(p is None for p in parts):
-            return None
-        return ', '.join(parts)
-    return None
-
-def code_visual_preview(code_str):
-    rows = []
-    try:
-        tree = ast.parse(_preprocess_user_code(code_str or ''), mode='exec')
-    except SyntaxError as exc:
-        return json.dumps({'status': 'error', 'message': 'Syntax: ' + str(exc), 'rows': []})
-
-    ns = dict(get_eval_locals())
-    ns.update({'sp': sp, 'math': math, '_out_ref': _out_ref, '_pv_call': _pv_call,
-               '_make_lambda': _make_lambda, '_pe': _pe})
-    old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
-    try:
-        body = tree.body[:60]
-        for idx_st, st in enumerate(body):
-            try:
-                if isinstance(st, (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef)):
-                    exec(compile(ast.Module(body=[st], type_ignores=[]), '<preview>', 'exec'), ns)
-                    continue
-                if isinstance(st, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
-                    new_st = ast.fix_missing_locations(_PreviewTransformer().visit(st))
-                    exec(compile(ast.Module(body=[new_st], type_ignores=[]), '<preview>', 'exec'), ns)
-                    targets = st.targets if isinstance(st, ast.Assign) else [st.target]
-                    for tgt in targets:
-                        if isinstance(tgt, ast.Name):
-                            val = ns.get(tgt.id)
-                            if _is_symbol_decl(val, [tgt.id]) and isinstance(val, sp.Symbol) and str(val) == tgt.id:
-                                continue
-                            if isinstance(val, sp.core.function.UndefinedFunction):
-                                continue
-                            lx = _preview_value_latex(val)
-                            if lx and len(lx) < 4000:
-                                rows.append({'lhs': _target_latex(tgt), 'latex': lx})
-                        elif isinstance(tgt, (ast.Tuple, ast.List)):
-                            vals = [ns.get(e.id) if isinstance(e, ast.Name) else None for e in tgt.elts]
-                            if _is_symbol_decl(vals, []):
-                                continue
-                            lx_parts = [_preview_value_latex(v) for v in vals]
-                            if all(lx_parts):
-                                rows.append({'lhs': _target_latex(tgt), 'latex': ', '.join(lx_parts)})
-                    continue
-                if isinstance(st, ast.Expr) and idx_st == len(body) - 1:
-                    if isinstance(st.value, ast.Call) and isinstance(st.value.func, ast.Name) and st.value.func.id in ('print', 'display'):
-                        continue
-                    new_val = ast.fix_missing_locations(_PreviewTransformer().visit(ast.Expression(body=st.value)))
-                    val = eval(compile(new_val, '<preview>', 'eval'), ns)
-                    lx = _preview_value_latex(val)
-                    if lx and len(lx) < 4000:
-                        rows.append({'lhs': None, 'latex': lx})
-                # Loops / conditionals / prints are skipped in the preview (they run on Run Script)
-            except Exception:
-                continue
-    finally:
-        sys.stdout = old_stdout
-    return json.dumps({'status': 'ok', 'rows': rows[:40]})
-
-# ---------------------------------------------------------------------------
-# Multi-tab kernel isolation: each notebook tab owns its own memory namespace
-# ---------------------------------------------------------------------------
-_tab_sessions = {}
-_active_tab_id = None
-
-def switch_session(tab_id):
-    global session_vars, session_funcs, session_assumptions, out_history, _active_tab_id
-    if _active_tab_id is None:
-        _tab_sessions[tab_id] = (session_vars, session_funcs, session_assumptions, out_history)
-    elif tab_id != _active_tab_id:
-        _tab_sessions[_active_tab_id] = (session_vars, session_funcs, session_assumptions, out_history)
-        if tab_id not in _tab_sessions:
-            _tab_sessions[tab_id] = ({}, {}, {}, {})
-        session_vars, session_funcs, session_assumptions, out_history = _tab_sessions[tab_id]
-    _active_tab_id = tab_id
-    return json.dumps({'status': 'ok', 'session': serialize_session()})
-
-def drop_session(tab_id):
-    if tab_id != _active_tab_id:
-        _tab_sessions.pop(tab_id, None)
-    return True
-
-def convert_code_to_visual(code_str):
-    code_str = (code_str or '').strip()
-    if not code_str:
-        return json.dumps({'status': 'ok', 'latex': '', 'operation': 'eval', 'params': {}, 'assignTo': ''})
-
-    cleaned_code = _preprocess_user_code(code_str)
-    try:
-        tree = ast.parse(cleaned_code, mode='exec')
-    except Exception as exc:
-        try:
-            expr, _ = parse_math_input(code_str)
-            return json.dumps({'status': 'ok', 'latex': sp.latex(expr), 'operation': 'eval', 'params': {}, 'assignTo': ''})
-        except Exception:
-            return json.dumps({'status': 'error', 'message': f'Syntax error in code: {exc}'})
-
-    ns = dict(get_eval_locals())
-    ns.update({'sp': sp, 'math': math, '_out_ref': _out_ref, '_make_lambda': _make_lambda, '_pe': _pe})
-
-    detected_op = 'eval'
-    detected_params = {}
-    detected_assign_to = ''
-
-    def match_op_call(node):
-        if not isinstance(node, ast.Call):
-            return None, None, {}
-        fn_name = ''
-        if isinstance(node.func, ast.Attribute):
-            fn_name = node.func.attr
-        elif isinstance(node.func, ast.Name):
-            fn_name = node.func.id
-
-        if fn_name == 'expand' and len(node.args) >= 1:
-            return 'expand', node.args[0], {}
-        elif fn_name == 'factor' and len(node.args) >= 1:
-            return 'factor', node.args[0], {}
-        elif fn_name == 'simplify' and len(node.args) >= 1:
-            return 'simplify', node.args[0], {}
-        elif fn_name == 'trigsimp' and len(node.args) >= 1:
-            return 'trigsimp', node.args[0], {}
-        elif fn_name == 'apart' and len(node.args) >= 1:
-            p = {'var': 'x'}
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
-                p['var'] = node.args[1].id
-            return 'apart', node.args[0], p
-        elif fn_name == 'diff' and len(node.args) >= 1:
-            p = {'var': 'x', 'order': 1}
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
-                p['var'] = node.args[1].id
-            if len(node.args) >= 3 and isinstance(node.args[2], ast.Constant) and isinstance(node.args[2].value, int):
-                p['order'] = node.args[2].value
-            return 'diff', node.args[0], p
-        elif fn_name == 'integrate' and len(node.args) >= 1:
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Tuple) and len(node.args[1].elts) == 3:
-                tup = node.args[1].elts
-                v_name = tup[0].id if isinstance(tup[0], ast.Name) else 'x'
-                low_val = eval(compile(ast.Expression(body=tup[1]), '<conv>', 'eval'), ns)
-                upp_val = eval(compile(ast.Expression(body=tup[2]), '<conv>', 'eval'), ns)
-                return 'integrate_def', node.args[0], {'var': v_name, 'lower': sp.latex(low_val), 'upper': sp.latex(upp_val)}
-            else:
-                p = {'var': 'x'}
-                if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
-                    p['var'] = node.args[1].id
-                return 'integrate_indef', node.args[0], p
-        elif fn_name == 'limit' and len(node.args) >= 3:
-            v_name = node.args[1].id if isinstance(node.args[1], ast.Name) else 'x'
-            pt_val = eval(compile(ast.Expression(body=node.args[2]), '<conv>', 'eval'), ns)
-            d = '+-'
-            for kw in node.keywords:
-                if kw.arg == 'dir' and isinstance(kw.value, ast.Constant):
-                    d = str(kw.value.value)
-            return 'limit', node.args[0], {'var': v_name, 'point': sp.latex(pt_val), 'dir': d}
-        elif fn_name == 'series' and len(node.args) >= 1:
-            p = {'var': 'x', 'point': '0', 'order': 6}
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
-                p['var'] = node.args[1].id
-            if len(node.args) >= 3:
-                pt_val = eval(compile(ast.Expression(body=node.args[2]), '<conv>', 'eval'), ns)
-                p['point'] = sp.latex(pt_val)
-            if len(node.args) >= 4 and isinstance(node.args[3], ast.Constant) and isinstance(node.args[3].value, int):
-                p['order'] = node.args[3].value
-            return 'series', node.args[0], p
-        elif fn_name == 'summation' and len(node.args) >= 2:
-            p = {'var': 'n', 'lower': '1', 'upper': 'oo'}
-            if isinstance(node.args[1], ast.Tuple) and len(node.args[1].elts) == 3:
-                tup = node.args[1].elts
-                p['var'] = tup[0].id if isinstance(tup[0], ast.Name) else 'n'
-                low_val = eval(compile(ast.Expression(body=tup[1]), '<conv>', 'eval'), ns)
-                upp_val = eval(compile(ast.Expression(body=tup[2]), '<conv>', 'eval'), ns)
-                p['lower'] = sp.latex(low_val)
-                p['upper'] = sp.latex(upp_val)
-            return 'sum', node.args[0], p
-        elif fn_name == 'solve' and len(node.args) >= 1:
-            p = {'var': 'x'}
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Name):
-                p['var'] = node.args[1].id
-            return 'solve', node.args[0], p
-        elif fn_name in ('_curv_grad', 'grad') and len(node.args) >= 1:
-            return 'curv_grad', node.args[0], {}
-        elif fn_name in ('_curv_div', 'div') and len(node.args) >= 1:
-            return 'curv_div', node.args[0], {}
-        elif fn_name in ('_curv_curl', 'curl') and len(node.args) >= 1:
-            return 'curv_curl', node.args[0], {}
-        elif fn_name in ('_curv_laplacian', 'laplacian') and len(node.args) >= 1:
-            return 'curv_laplacian', node.args[0], {}
-        elif fn_name in ('_mech_strain', 'mech_strain') and len(node.args) >= 1:
-            return 'mech_strain', node.args[0], {}
-        elif fn_name in ('_mech_compat', 'mech_compat') and len(node.args) >= 1:
-            return 'mech_compat', node.args[0], {}
-        elif fn_name in ('_mech_hooke', 'mech_hooke') and len(node.args) >= 1:
-            return 'mech_hooke', node.args[0], {}
-        elif fn_name in ('_mech_invariants', 'mech_invariants') and len(node.args) >= 1:
-            return 'mech_invariants', node.args[0], {}
-        elif fn_name in ('_mech_airy', 'mech_airy') and len(node.args) >= 1:
-            return 'mech_airy', node.args[0], {}
-        elif fn_name in ('_mech_mohr', 'mech_mohr') and len(node.args) >= 1:
-            return 'mech_mohr', node.args[0], {}
-        elif fn_name in ('_em_maxwell_check', 'em_maxwell_check') and len(node.args) >= 1:
-            return 'em_maxwell_check', node.args[0], {}
-        elif fn_name in ('_em_potentials', 'em_potentials') and len(node.args) >= 1:
-            return 'em_potentials', node.args[0], {}
-        elif fn_name in ('_em_gauge', 'em_gauge') and len(node.args) >= 1:
-            return 'em_gauge', node.args[0], {}
-        elif fn_name in ('_em_poynting', 'em_poynting') and len(node.args) >= 1:
-            return 'em_poynting', node.args[0], {}
-        elif fn_name in ('_em_stress_tensor', 'em_stress_tensor') and len(node.args) >= 1:
-            return 'em_stress_tensor', node.args[0], {}
-        return None, None, {}
-
-    last_assign = None
-    last_expr = None
-    for st in tree.body:
-        try:
-            if isinstance(st, (ast.Import, ast.ImportFrom, ast.FunctionDef)):
-                exec(compile(ast.Module(body=[st], type_ignores=[]), '<conv>', 'exec'), ns)
-            elif isinstance(st, ast.Assign):
-                exec(compile(ast.Module(body=[st], type_ignores=[]), '<conv>', 'exec'), ns)
-                targets = [t.id for t in st.targets if isinstance(t, ast.Name)]
-                if targets:
-                    last_assign = st
-            elif isinstance(st, ast.Expr):
-                last_expr = st
-        except Exception:
-            pass
-
-    eval_target_node = None
-    if last_assign is not None:
-        tgt_name = last_assign.targets[0].id if isinstance(last_assign.targets[0], ast.Name) else 'result'
-        rhs_node = last_assign.value
-        op_found, inner_arg_node, op_params = match_op_call(rhs_node)
-        if op_found:
-            detected_op = op_found
-            detected_params = op_params
-            eval_target_node = inner_arg_node
-        else:
-            eval_target_node = rhs_node
-            if tgt_name not in ('result', 'expr'):
-                detected_assign_to = tgt_name
-    elif last_expr is not None:
-        op_found, inner_arg_node, op_params = match_op_call(last_expr.value)
-        if op_found:
-            detected_op = op_found
-            detected_params = op_params
-            eval_target_node = inner_arg_node
-        else:
-            eval_target_node = last_expr.value
-
-    target_latex = ''
-    if eval_target_node is not None:
-        try:
-            val = eval(compile(ast.Expression(body=eval_target_node), '<conv>', 'eval'), ns)
-            target_latex = sp.latex(val)
-        except Exception:
-            try:
-                target_latex = ast.unparse(eval_target_node)
-            except Exception:
-                target_latex = ''
-
-    if detected_assign_to and detected_op == 'eval':
-        target_latex = f"{detected_assign_to} = {target_latex}" if target_latex else detected_assign_to
-        detected_assign_to = ''
-
-    return json.dumps({
-        'status': 'ok',
-        'latex': target_latex,
-        'operation': detected_op,
-        'params': detected_params,
-        'assignTo': detected_assign_to
-    })
-
-def execute_code_cell(code_str, cell_index, assign_to=''):
-    if not code_str.strip():
-        return json.dumps({
-            'status': 'error',
-            'message': 'Direct SymPy Code cell is empty. Enter Python/SymPy statements to evaluate.'
-        })
-
-    stdout_buf = io.StringIO()
-    old_stdout = sys.stdout
-    sys.stdout = stdout_buf
-
-    try:
-        exec_ns = dict(get_eval_locals())
-        exec_ns['sp'] = sp
-        exec_ns['math'] = math
-        exec_ns['_out_ref'] = _out_ref
-        exec_ns['_make_lambda'] = _make_lambda
-        exec_ns['_pe'] = _pe
-        initial_keys = set(exec_ns.keys())
-        initial_ids  = {k: id(v) for k, v in exec_ns.items()}
-
-        tree = ast.parse(_preprocess_user_code(code_str), mode='exec')  # accepts math-style f(x) = x^2 sin(x)
-        last_expr_val = None
-
-        if tree.body and isinstance(tree.body[-1], ast.Expr):
-            # Execute all statements up to the last one, then eval the final expression
-            if len(tree.body) > 1:
-                mod_head = ast.Module(body=tree.body[:-1], type_ignores=[])
-                exec(compile(mod_head, '<sympystudio_cell>', 'exec'), exec_ns)
-            last_expr_node = ast.Expression(body=tree.body[-1].value)
-            last_expr_val = eval(compile(last_expr_node, '<sympystudio_cell>', 'eval'), exec_ns)
-        else:
-            exec(compile(tree, '<sympystudio_cell>', 'exec'), exec_ns)
-
-        # Persist newly assigned or modified SymPy symbols/expressions/matrices into session_vars
-        last_assigned_sympy = None
-        for k, v in exec_ns.items():
-            if k.startswith('_') or k in ('sp', 'math', 'result', 'plot_data'):
-                continue
-            if k not in initial_keys or id(v) != initial_ids.get(k):
-                if isinstance(v, (sp.Basic, sp.MatrixBase, int, float, list, tuple, dict)):
-                    if isinstance(v, (sp.Basic, sp.MatrixBase)):
-                        session_vars[k] = v
-                        last_assigned_sympy = v
-
-        # Determine primary result object to render in KaTeX
-        if 'result' in exec_ns and exec_ns['result'] is not None and (
-            'result' not in initial_keys or id(exec_ns['result']) != initial_ids.get('result')
-        ):
-            result_obj = exec_ns['result']
-        elif last_expr_val is not None:
-            result_obj = last_expr_val
-        elif last_assigned_sympy is not None:
-            result_obj = last_assigned_sympy
-        else:
-            result_obj = sp.Symbol('Done')
-
-        out_history[cell_index] = result_obj
-        assigned_name = None
-        if assign_to:
-            valid_var = re.sub(r'[^a-zA-Z0-9_]', '', assign_to)
-            if valid_var:
-                session_vars[valid_var] = result_obj
-                assigned_name = valid_var
-
-        approx_latex = None
-        try:
-            if hasattr(result_obj, 'removeO'):
-                num_val = sp.N(result_obj.removeO(), 8)
-            elif isinstance(result_obj, list):
-                num_val = [sp.N(item, 8) if hasattr(item, 'evalf') else item for item in result_obj]
-            else:
-                num_val = sp.N(result_obj, 8)
-            approx_latex = sp.latex(num_val)
-        except Exception:
-            approx_latex = None
-
-        custom_plot = exec_ns.get('plot_data', None)
-        if not isinstance(custom_plot, dict):
-            custom_plot = None
-
-        stdout_text = stdout_buf.getvalue()
-        return json.dumps({
-            'status': 'ok',
-            'latex': sp.latex(result_obj) if result_obj is not None else r'\text{Executed}',
-            'approxLatex': approx_latex,
-            'sympyCode': code_str,
-            'stdout': stdout_text,
-            'assigned': assigned_name,
-            'warning': None,
-            'plotData': custom_plot,
-            'session': serialize_session()
-        })
-    except Exception as exc:
-        stdout_text = stdout_buf.getvalue()
-        return json.dumps({
-            'status': 'error',
-            'message': str(exc),
-            'stdout': stdout_text
-        })
-    finally:
-        sys.stdout = old_stdout
-
-def execute_notebook_cell(payload_json):
-    data = json.loads(payload_json)
-    cell_mode = data.get('mode', 'visual')
-    raw_latex = data.get('latex', '').strip()
-    raw_code  = data.get('code', '').strip()
-    op = data.get('operation', 'eval')
-    params = data.get('params', {})
-    assign_to = data.get('assignTo', '').strip()
-    cell_index = int(data.get('inIndex', 1))
-
-    if cell_mode == 'code':
-        return execute_code_cell(raw_code, cell_index, assign_to)
-
-    latest_idx = max(out_history.keys()) if out_history else None
-
-    if not raw_latex:
-        return json.dumps({
-            'status': 'error',
-            'message': 'Cell input is empty. Enter an expression using the editor or Math Palettes.'
-        })
-
-    try:
-        loc = get_eval_locals()
-        loc['_out_ref'] = _out_ref
-        transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
-
-        sympy_code_shown = ""
-        result_obj = None
-        assigned_name = None
-
-        cleaned_for_def = latex_to_sympy_str(raw_latex, latest_idx)
-        # Detect Function Definition in eval mode: e.g. f(x) = x^2 * sin(x)
-        func_def_match = re.match(r'^([a-zA-Z][a-zA-Z0-9_]*)\s*\(([a-zA-Z0-9_,\s]+)\)\s*=\s*(.+)$', cleaned_for_def)
-        # Detect Variable Assignment in eval mode: e.g. k = 4.5
-        var_def_match = re.match(r'^([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*(.+)$', cleaned_for_def)
-
-        if op == 'ode_solve':
-            func_str = params.get('func', 'y(x)').strip()
-            fn_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\(([a-zA-Z_][a-zA-Z0-9_]*)\)', func_str)
-            fn_name = fn_match.group(1) if fn_match else 'y'
-            indep_name = fn_match.group(2) if fn_match else 'x'
-
-            indep_sym = sp.Symbol(indep_name)
-            dep_fn = sp.Function(fn_name)
-
-            ode_clean = latex_to_sympy_str(raw_latex, latest_idx)
-            ode_clean = re.sub(rf"\b{fn_name}\s*'''\s*\({indep_name}\)", f"Derivative({fn_name}({indep_name}), ({indep_name}, 3))", ode_clean)
-            ode_clean = re.sub(rf"\b{fn_name}\s*''\s*\({indep_name}\)", f"Derivative({fn_name}({indep_name}), ({indep_name}, 2))", ode_clean)
-            ode_clean = re.sub(rf"\b{fn_name}\s*'\s*\({indep_name}\)", f"Derivative({fn_name}({indep_name}), {indep_name})", ode_clean)
-            ode_clean = re.sub(rf"\b{fn_name}\s*''", f"Derivative({fn_name}({indep_name}), ({indep_name}, 2))", ode_clean)
-            ode_clean = re.sub(rf"\b{fn_name}\s*'", f"Derivative({fn_name}({indep_name}), {indep_name})", ode_clean)
-
-            ode_loc = dict(loc)
-            ode_loc[fn_name] = dep_fn
-            ode_loc[indep_name] = indep_sym
-
-            if '=' in ode_clean:
-                lhs_s, rhs_s = ode_clean.split('=', 1)
-                lhs_e = parse_expr(lhs_s, local_dict=ode_loc, transformations=transformations)
-                rhs_e = parse_expr(rhs_s, local_dict=ode_loc, transformations=transformations)
-                ode_eq = sp.Eq(lhs_e, rhs_e)
-            else:
-                ode_eq = sp.Eq(parse_expr(ode_clean, local_dict=ode_loc, transformations=transformations), 0)
-
-            ics_dict = {}
-            for ic_key in ['ic1', 'ic2']:
-                ic_raw = params.get(ic_key, '').strip()
-                if ic_raw and '=' in ic_raw:
-                    ic_lhs, ic_rhs = [p.strip() for p in ic_raw.split('=', 1)]
-                    ic_val = parse_expr(latex_to_sympy_str(ic_rhs, latest_idx), local_dict=ode_loc, transformations=transformations)
-                    m_der = re.match(rf"{fn_name}('+)\(([^)]+)\)", ic_lhs)
-                    m_val = re.match(rf"{fn_name}\(([^)]+)\)", ic_lhs)
-                    if m_der:
-                        order_ic = len(m_der.group(1))
-                        pt_ic = parse_expr(m_der.group(2), local_dict=ode_loc, transformations=transformations)
-                        ics_dict[dep_fn(indep_sym).diff(indep_sym, order_ic).subs(indep_sym, pt_ic)] = ic_val
-                    elif m_val:
-                        pt_ic = parse_expr(m_val.group(1), local_dict=ode_loc, transformations=transformations)
-                        ics_dict[dep_fn(pt_ic)] = ic_val
-
-            if ics_dict:
-                result_obj = sp.dsolve(ode_eq, dep_fn(indep_sym), ics=ics_dict)
-                sympy_code_shown = f"sp.dsolve({repr(ode_eq)}, {fn_name}({indep_name}), ics={repr(ics_dict)})"
-            else:
-                result_obj = sp.dsolve(ode_eq, dep_fn(indep_sym))
-                sympy_code_shown = f"sp.dsolve({repr(ode_eq)}, {fn_name}({indep_name}))"
-
-        elif op == 'eval' and func_def_match and '=' in raw_latex:
-            fn_name = func_def_match.group(1).strip()
-            args_str = [a.strip() for a in func_def_match.group(2).split(',') if a.strip()]
-            rhs_str = func_def_match.group(3).strip()
-            arg_syms = [sp.Symbol(a) for a in args_str]
-            fn_loc = dict(loc)
-            for a_s in arg_syms:
-                fn_loc[str(a_s)] = a_s
-            rhs_expr = parse_expr(rhs_str, local_dict=fn_loc, transformations=transformations)
-
-            def make_callable(args_tuple, body_expr):
-                def _call(*call_args):
-                    if len(call_args) != len(args_tuple):
-                        raise ValueError(f"Function {fn_name} expects {len(args_tuple)} argument(s).")
-                    subs_map = {args_tuple[i]: call_args[i] for i in range(len(args_tuple))}
-                    return body_expr.subs(subs_map)
-                return _call
-
-            session_funcs[fn_name] = {'args': arg_syms, 'expr': rhs_expr, 'callable': make_callable(arg_syms, rhs_expr)}
-            result_obj = rhs_expr
-            assigned_name = f"{fn_name}({', '.join(args_str)})"
-            sympy_code_shown = f"def {fn_name}({', '.join(args_str)}): return {repr(rhs_expr)}"
-
-        elif var_def_match and '=' in raw_latex and not ('==' in raw_latex):
-            v_name = var_def_match.group(1).strip()
-            rhs_str = var_def_match.group(2).strip()
-            rhs_expr, _ = parse_math_input(rhs_str, latest_idx)
-
-            if op == 'eval':
-                res_val = rhs_expr.doit() if hasattr(rhs_expr, 'doit') else rhs_expr
-                sympy_code_shown = f"{v_name} = {repr(res_val)}"
-            elif op == 'diff':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                order = int(params.get('order', 1) or 1)
-                res_val = sp.diff(rhs_expr, v_sym, order)
-                sympy_code_shown = f"{v_name} = sp.diff({repr(rhs_expr)}, {v_sym}, {order})"
-            elif op == 'integrate_indef':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                res_val = sp.integrate(rhs_expr, v_sym)
-                sympy_code_shown = f"{v_name} = sp.integrate({repr(rhs_expr)}, {v_sym})"
-            elif op == 'integrate_def':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                a_lim, _ = parse_math_input(str(params.get('lower', '0')), latest_idx)
-                b_lim, _ = parse_math_input(str(params.get('upper', 'pi')), latest_idx)
-                res_val = sp.integrate(rhs_expr, (v_sym, a_lim, b_lim))
-                sympy_code_shown = f"{v_name} = sp.integrate({repr(rhs_expr)}, ({v_sym}, {repr(a_lim)}, {repr(b_lim)}))"
-            elif op == 'simplify':
-                res_val = sp.simplify(rhs_expr)
-                sympy_code_shown = f"{v_name} = sp.simplify({repr(rhs_expr)})"
-            elif op == 'expand':
-                res_val = sp.expand(rhs_expr)
-                sympy_code_shown = f"{v_name} = sp.expand({repr(rhs_expr)})"
-            elif op == 'factor':
-                res_val = sp.factor(rhs_expr)
-                sympy_code_shown = f"{v_name} = sp.factor({repr(rhs_expr)})"
-            elif op == 'apart':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                res_val = sp.apart(rhs_expr, v_sym)
-                sympy_code_shown = f"{v_name} = sp.apart({repr(rhs_expr)}, {v_sym})"
-            elif op == 'trigsimp':
-                res_val = sp.trigsimp(rhs_expr)
-                sympy_code_shown = f"{v_name} = sp.trigsimp({repr(rhs_expr)})"
-            elif op == 'solve':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                res_val = sp.solve(sp.Eq(sp.Symbol(v_name), rhs_expr), v_sym)
-                sympy_code_shown = f"sp.solve(sp.Eq(sp.Symbol('{v_name}'), {repr(rhs_expr)}), {v_sym})"
-            else:
-                res_val = rhs_expr.doit() if hasattr(rhs_expr, 'doit') else rhs_expr
-                sympy_code_shown = f"{v_name} = {repr(res_val)}"
-
-            session_vars[v_name] = res_val
-            assigned_name = v_name
-            result_obj = sp.Eq(sp.Symbol(v_name), res_val) if op != 'solve' else res_val
-
-        elif op == 'solve':
-            var_name = params.get('var', 'x').strip() or 'x'
-            solve_sym = loc.get(var_name, sp.Symbol(var_name))
-            if not isinstance(solve_sym, sp.Symbol):
-                solve_sym = sp.Symbol(var_name)
-            cleaned = latex_to_sympy_str(raw_latex, latest_idx)
-            if '=' in cleaned:
-                lhs_s, rhs_s = cleaned.split('=', 1)
-                lhs_e = parse_expr(lhs_s, local_dict=loc, transformations=transformations)
-                rhs_e = parse_expr(rhs_s, local_dict=loc, transformations=transformations)
-                eq_obj = sp.Eq(lhs_e, rhs_e)
-            else:
-                eq_obj = parse_expr(cleaned, local_dict=loc, transformations=transformations)
-            result_obj = sp.solve(eq_obj, solve_sym)
-            sympy_code_shown = f"sp.solve({repr(eq_obj)}, {solve_sym})"
-
-        elif op == 'solve_system':
-            eq_strings = [raw_latex]
-            if params.get('eq2', '').strip():
-                eq_strings.append(params.get('eq2').strip())
-            if params.get('eq3', '').strip():
-                eq_strings.append(params.get('eq3').strip())
-            vars_raw = params.get('vars', 'x, y').strip()
-            var_syms = [sp.Symbol(v.strip()) for v in vars_raw.split(',') if v.strip()]
-
-            eq_objs = []
-            for eq_s in eq_strings:
-                c_s = latex_to_sympy_str(eq_s, latest_idx)
-                if '=' in c_s:
-                    l_s, r_s = c_s.split('=', 1)
-                    eq_objs.append(sp.Eq(
-                        parse_expr(l_s, local_dict=loc, transformations=transformations),
-                        parse_expr(r_s, local_dict=loc, transformations=transformations)
-                    ))
-                else:
-                    eq_objs.append(parse_expr(c_s, local_dict=loc, transformations=transformations))
-            result_obj = sp.solve(eq_objs, var_syms, dict=True)
-            sympy_code_shown = f"sp.solve({repr(eq_objs)}, {repr(var_syms)}, dict=True)"
-
-        elif op in ('plot_2d', 'plot_parametric', 'plot_3d', 'plot_vector_2d', 'em_field_plot'):
-            expr, cleaned_str = parse_math_input(raw_latex, latest_idx)
-            result_obj = expr.rhs if isinstance(expr, sp.Equality) else expr
-            plot_data, sympy_code_shown = _build_plot_payload(op, expr, raw_latex, params, loc, latest_idx)
-            out_history[cell_index] = result_obj
-            if assign_to:
-                session_vars[assign_to] = result_obj
-
-            return json.dumps({
-                'status': 'ok',
-                'latex': sp.latex(result_obj),
-                'approxLatex': None,
-                'sympyCode': sympy_code_shown,
-                'assigned': assign_to or assigned_name,
-                'plotData': plot_data,
-                'session': serialize_session()
-            })
-
-        else:
-            expr, cleaned_str = parse_math_input(raw_latex, latest_idx)
-
-            if isinstance(expr, sp.Equality):
-                def _apply_eq(e):
-                    if op == 'eval': return e.doit() if hasattr(e, 'doit') else e
-                    elif op == 'simplify': return sp.simplify(e)
-                    elif op == 'expand': return sp.expand(e)
-                    elif op == 'factor': return sp.factor(e)
-                    elif op == 'trigsimp': return sp.trigsimp(e)
-                    elif op == 'diff':
-                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                        o_n = int(params.get('order', 1) or 1)
-                        return sp.diff(e, v_s, o_n)
-                    elif op == 'integrate_indef':
-                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                        return sp.integrate(e, v_s)
-                    elif op == 'apart':
-                        v_s = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                        return sp.apart(e, v_s)
-                    return e
-                result_obj = sp.Eq(_apply_eq(expr.lhs), _apply_eq(expr.rhs))
-                sympy_code_shown = f"sp.Eq({repr(result_obj.lhs)}, {repr(result_obj.rhs)})"
-
-            elif op == 'eval':
-                result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                if cleaned_str.startswith(('integrate(', 'diff(', 'limit(', 'summation(', 'product(')):
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    sympy_code_shown = f"{repr(expr)}"
-
-            elif op == 'diff':
-                if cleaned_str.startswith('diff('):
-                    result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                    order = int(params.get('order', 1) or 1)
-                    result_obj = sp.diff(expr, v_sym, order)
-                    sympy_code_shown = f"sp.diff({repr(expr)}, {v_sym}, {order})"
-
-            elif op == 'integrate_indef':
-                if cleaned_str.startswith('integrate('):
-                    result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                    result_obj = sp.integrate(expr, v_sym)
-                    sympy_code_shown = f"sp.integrate({repr(expr)}, {v_sym})"
-
-            elif op == 'integrate_def':
-                if cleaned_str.startswith('integrate('):
-                    result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                    a_lim, _ = parse_math_input(str(params.get('lower', '0')), latest_idx)
-                    b_lim, _ = parse_math_input(str(params.get('upper', 'pi')), latest_idx)
-                    result_obj = sp.integrate(expr, (v_sym, a_lim, b_lim))
-                    sympy_code_shown = f"sp.integrate({repr(expr)}, ({v_sym}, {repr(a_lim)}, {repr(b_lim)}))"
-
-            elif op == 'limit':
-                if cleaned_str.startswith('limit('):
-                    result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                    pt_lim, _ = parse_math_input(str(params.get('point', '0')), latest_idx)
-                    direction = params.get('dir', '+-')
-                    result_obj = sp.limit(expr, v_sym, pt_lim, dir=direction)
-                    sympy_code_shown = f"sp.limit({repr(expr)}, {v_sym}, {repr(pt_lim)}, dir='{direction}')"
-
-            elif op == 'series':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                pt_0, _ = parse_math_input(str(params.get('point', '0')), latest_idx)
-                order_n = int(params.get('order', 6) or 6)
-                result_obj = sp.series(expr, v_sym, pt_0, order_n)
-                sympy_code_shown = f"sp.series({repr(expr)}, {v_sym}, {repr(pt_0)}, {order_n})"
-
-            elif op == 'sum':
-                if cleaned_str.startswith('summation('):
-                    result_obj = expr.doit() if hasattr(expr, 'doit') else expr
-                    sympy_code_shown = f"sp.{cleaned_str}"
-                else:
-                    v_sym = sp.Symbol(params.get('var', 'n').strip() or 'n')
-                    a_lim, _ = parse_math_input(str(params.get('lower', '1')), latest_idx)
-                    b_lim, _ = parse_math_input(str(params.get('upper', 'oo')), latest_idx)
-                    result_obj = sp.summation(expr, (v_sym, a_lim, b_lim))
-                    sympy_code_shown = f"sp.summation({repr(expr)}, ({v_sym}, {repr(a_lim)}, {repr(b_lim)}))"
-
-            elif op == 'simplify':
-                result_obj = sp.simplify(expr)
-                sympy_code_shown = f"sp.simplify({repr(expr)})"
-
-            elif op == 'expand':
-                result_obj = sp.expand(expr)
-                sympy_code_shown = f"sp.expand({repr(expr)})"
-
-            elif op == 'factor':
-                result_obj = sp.factor(expr)
-                sympy_code_shown = f"sp.factor({repr(expr)})"
-
-            elif op == 'apart':
-                v_sym = sp.Symbol(params.get('var', 'x').strip() or 'x')
-                result_obj = sp.apart(expr, v_sym)
-                sympy_code_shown = f"sp.apart({repr(expr)}, {v_sym})"
-
-            elif op == 'trigsimp':
-                result_obj = sp.trigsimp(expr)
-                sympy_code_shown = f"sp.trigsimp({repr(expr)})"
-
-            elif op == 'mat_det':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Matrix for determinant calculation.")
-                result_obj = expr.det()
-                sympy_code_shown = f"({repr(expr)}).det()"
-
-            elif op == 'mat_inv':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Matrix for matrix inversion.")
-                result_obj = expr.inv()
-                sympy_code_shown = f"({repr(expr)}).inv()"
-
-            elif op == 'mat_transpose':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Matrix for transpose.")
-                result_obj = expr.T
-                sympy_code_shown = f"({repr(expr)}).T"
-
-            elif op == 'mat_trace':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Matrix for trace.")
-                result_obj = expr.trace()
-                sympy_code_shown = f"({repr(expr)}).trace()"
-
-            elif op == 'mat_charpoly':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Matrix for characteristic polynomial.")
-                lam_sym = sp.Symbol(params.get('var', 'lambda').strip() or 'lambda')
-                result_obj = expr.charpoly(lam_sym).as_expr()
-                sympy_code_shown = f"({repr(expr)}).charpoly({lam_sym}).as_expr()"
-
-            elif op == 'mat_eigen':
-                if not isinstance(expr, sp.MatrixBase):
-                    raise ValueError("Input must be a Square Matrix for eigen-analysis.")
-                evects = expr.eigenvects()
-                pieces = []
-                for val, mult, basis in evects:
-                    basis_ltx = ", ".join([sp.latex(b) for b in basis])
-                    pieces.append(r"\lambda = " + sp.latex(val) + r" \; (\text{mult } " + str(mult) + r"), \quad \vec{v} = " + basis_ltx)
-                custom_latex = r"\begin{aligned} " + r" \\ ".join(pieces) + r" \end{aligned}"
-                out_history[cell_index] = expr
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"({repr(expr)}).eigenvects()",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op in ('curv_grad', 'curv_div', 'curv_curl', 'curv_laplacian', 'vec_grad', 'vec_div', 'vec_curl', 'vec_laplacian'):
-                system = params.get('system', 'cartesian')
-                coords_raw = params.get('coords', 'x, y, z' if system == 'cartesian' else ('r, theta, z' if system == 'cylindrical' else 'r, theta, phi'))
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                while len(c_syms) < 3:
-                    c_syms.append(sp.Symbol('z'))
-                if op in ('curv_grad', 'vec_grad'):
-                    result_obj = _curv_grad(expr, system, c_syms)
-                    sympy_code_shown = f"grad({repr(expr)}, system='{system}', coords={repr(c_syms)})"
-                elif op in ('curv_laplacian', 'vec_laplacian'):
-                    result_obj = _curv_laplacian(expr, system, c_syms)
-                    sympy_code_shown = f"laplacian({repr(expr)}, system='{system}', coords={repr(c_syms)})"
-                elif op in ('curv_div', 'vec_div'):
-                    if not isinstance(expr, sp.MatrixBase):
-                        expr = sp.Matrix(expr)
-                    result_obj = _curv_div(expr, system, c_syms)
-                    sympy_code_shown = f"div({repr(expr)}, system='{system}', coords={repr(c_syms)})"
-                elif op in ('curv_curl', 'vec_curl'):
-                    if not isinstance(expr, sp.MatrixBase):
-                        expr = sp.Matrix(expr)
-                    result_obj = _curv_curl(expr, system, c_syms)
-                    sympy_code_shown = f"curl({repr(expr)}, system='{system}', coords={repr(c_syms)})"
-
-            elif op == 'mech_strain':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                result_obj = _mech_strain(expr, c_syms)
-                sympy_code_shown = f"mech_strain({repr(expr)}, coords={repr(c_syms)})"
-
-            elif op == 'mech_compat':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                compat_res = _mech_compat(expr, c_syms)
-                if compat_res['dim'] == 2:
-                    if compat_res['satisfied']:
-                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (2D):}} \\ &\nabla \times (\nabla \times \boldsymbol{\varepsilon})^T = 0 \quad \text{\textcolor{#059669}{\textbf{\checkmark Identically Satisfied}}} \\ &\text{Continuous single-valued displacement field } \vec{u}(x,y) \text{ guaranteed.} \end{aligned}"
-                        result_obj = sp.Integer(0)
-                    else:
-                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (2D) Residual:}} \\ &R = \frac{\partial^2 \varepsilon_{xx}}{\partial y^2} + \frac{\partial^2 \varepsilon_{yy}}{\partial x^2} - 2\frac{\partial^2 \varepsilon_{xy}}{\partial x \partial y} = " + sp.latex(compat_res['residual']) + r" \neq 0 \end{aligned}"
-                        result_obj = compat_res['residual']
-                else:
-                    if compat_res['satisfied']:
-                        custom_latex = r"\begin{aligned} &\text{\textbf{Saint-Venant Compatibility (3D):}} \\ &\text{All 6 compatibility conditions } S_{ij} = 0 \quad \text{\textcolor{#059669}{\textbf{\checkmark Identically Satisfied}}} \end{aligned}"
-                        result_obj = sp.zeros(3, 3)
-                    else:
-                        pieces = [f"S_{{ij}}^{{{k+1}}} = {sp.latex(r)}" for k, r in enumerate(compat_res['residuals']) if r != 0]
-                        custom_latex = r"\begin{aligned} &\text{\textbf{Compatibility Non-Zero Residuals:}} \\ &" + r" \\ &".join(pieces) + r" \end{aligned}"
-                        result_obj = sp.Matrix(compat_res['residuals'])
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"mech_compat({repr(expr)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'mech_hooke':
-                st = params.get('state', 'plane_stress')
-                dr = params.get('direction', 'strain_to_stress')
-                E_sym = loc.get(params.get('E', 'E'), sp.Symbol('E'))
-                nu_sym = loc.get(params.get('nu', 'nu'), sp.Symbol('nu'))
-                result_obj = _mech_hooke(expr, st, dr, E_sym, nu_sym)
-                sympy_code_shown = f"mech_hooke({repr(expr)}, state='{st}', direction='{dr}', E={repr(E_sym)}, nu={repr(nu_sym)})"
-
-            elif op == 'mech_invariants':
-                inv_res = _mech_invariants(expr)
-                sig_ltx = sp.latex(inv_res['sigma'])
-                S_ltx = sp.latex(inv_res['S'])
-                I1_ltx = sp.latex(inv_res['I1'])
-                I2_ltx = sp.latex(inv_res['I2'])
-                I3_ltx = sp.latex(inv_res['I3'])
-                J2_ltx = sp.latex(inv_res['J2'])
-                vm_ltx = sp.latex(inv_res['sigma_vm'])
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Stress Invariants \& von Mises Yield:}} \\ "
-                    r"&I_1 = \mathrm{tr}(\boldsymbol{\sigma}) = " + I1_ltx + r", \quad "
-                    r"I_2 = " + I2_ltx + r", \quad "
-                    r"I_3 = \det(\boldsymbol{\sigma}) = " + I3_ltx + r" \\ "
-                    r"&\mathbf{S} = \boldsymbol{\sigma} - \frac{I_1}{3}\mathbf{I} = " + S_ltx + r" \\ "
-                    r"&J_2 = \frac{1}{2}\mathrm{tr}(\mathbf{S}^2) = " + J2_ltx + r" \\ "
-                    r"&\sigma_{\mathrm{vm}} = \sqrt{3 J_2} = " + vm_ltx + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = inv_res['sigma_vm']
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': sp.latex(sp.N(result_obj, 8)) if hasattr(result_obj, 'evalf') else None,
-                    'sympyCode': f"mech_invariants({repr(expr)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'mech_airy':
-                coords_raw = params.get('coords', 'x, y')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                airy_res = _mech_airy(expr, c_syms)
-                sig_mat = airy_res['stress_matrix']
-                bih_ltx = sp.latex(airy_res['biharmonic'])
-                is_bih = airy_res['is_biharmonic']
-                status_ltx = r"\text{\textcolor{#059669}{\textbf{\checkmark Biharmonic Valid (\nabla^4\Phi = 0)}}}" if is_bih else r"\text{\textcolor{#DC2626}{\textbf{\times Not Biharmonic (\nabla^4\Phi \neq 0)}}}"
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Airy Stress Function Analyzer:}} \quad " + status_ltx + r" \\ "
-                    r"&\nabla^4\Phi = " + bih_ltx + r" \\ "
-                    r"&\boldsymbol{\sigma} = \begin{bmatrix} \frac{\partial^2\Phi}{\partial y^2} & -\frac{\partial^2\Phi}{\partial x \partial y} \\ -\frac{\partial^2\Phi}{\partial x \partial y} & \frac{\partial^2\Phi}{\partial x^2} \end{bmatrix} = " + sp.latex(sig_mat) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = sig_mat
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"mech_airy({repr(expr)}, coords={repr(c_syms)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'mech_mohr':
-                mohr_res = _mech_mohr(expr)
-                s_avg, R = mohr_res['sig_avg'], mohr_res['R']
-                s1, s2 = mohr_res['sig_1'], mohr_res['sig_2']
-                t_max = mohr_res['tau_max']
-                th_p = mohr_res['theta_p']
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Mohr's Circle Analysis:}} \\ "
-                    r"&\sigma_{\text{avg}} = \frac{\sigma_x + \sigma_y}{2} = " + sp.latex(s_avg) + r", \quad "
-                    r"R = \sqrt{\left(\frac{\sigma_x - \sigma_y}{2}\right)^2 + \tau_{xy}^2} = " + sp.latex(R) + r" \\ "
-                    r"&\sigma_1 = \sigma_{\text{avg}} + R = " + sp.latex(s1) + r", \quad "
-                    r"\sigma_2 = \sigma_{\text{avg}} - R = " + sp.latex(s2) + r" \\ "
-                    r"&\tau_{\max} = R = " + sp.latex(t_max) + r", \quad "
-                    r"\theta_p = \frac{1}{2}\operatorname{atan2}(2\tau_{xy}, \sigma_x - \sigma_y) = " + sp.latex(th_p) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = sp.Matrix([s1, s2, t_max])
-                out_history[cell_index] = result_obj
-
-                mohr_plot = None
-                try:
-                    s_x_f = float(sp.N(mohr_res['sig_x']))
-                    s_y_f = float(sp.N(mohr_res['sig_y']))
-                    t_xy_f = float(sp.N(mohr_res['tau_xy']))
-                    c_f = 0.5 * (s_x_f + s_y_f)
-                    r_f = math.sqrt((0.5 * (s_x_f - s_y_f))**2 + t_xy_f**2)
-                    s1_f = c_f + r_f
-                    s2_f = c_f - r_f
-                    th_pts = [2 * math.pi * i / 200 for i in range(201)]
-                    mohr_plot = {
-                        'type': 'parametric',
-                        'traces': [
-                            {
-                                'x': [c_f + r_f * math.cos(t) for t in th_pts],
-                                'y': [r_f * math.sin(t) for t in th_pts],
-                                'mode': 'lines',
-                                'line': {'color': '#EA580C', 'width': 2.5},
-                                'name': "Mohr's Circle"
-                            },
-                            {
-                                'x': [s_x_f, s_y_f],
-                                'y': [-t_xy_f, t_xy_f],
-                                'mode': 'lines+markers',
-                                'line': {'color': '#3F3F46', 'width': 1.5, 'dash': 'dot'},
-                                'marker': {'size': 8, 'color': '#3F3F46'},
-                                'name': f"Stress State (σx={s_x_f:.2f}, σy={s_y_f:.2f})"
-                            },
-                            {
-                                'x': [s1_f, s2_f],
-                                'y': [0.0, 0.0],
-                                'mode': 'markers',
-                                'marker': {'size': 9, 'color': '#059669', 'symbol': 'diamond'},
-                                'name': f"Principal Stresses (σ₁={s1_f:.2f}, σ₂={s2_f:.2f})"
-                            },
-                            {
-                                'x': [c_f, c_f],
-                                'y': [r_f, -r_f],
-                                'mode': 'markers',
-                                'marker': {'size': 8, 'color': '#2563EB', 'symbol': 'circle'},
-                                'name': f"Max Shear τ_max=±{r_f:.2f}"
-                            }
-                        ],
-                        'title': f"Mohr's Circle: σ₁={s1_f:.2f}, σ₂={s2_f:.2f}, τ_max={r_f:.2f}",
-                        'xlab': 'Normal Stress σ_n',
-                        'ylab': 'Shear Stress τ'
-                    }
-                except Exception:
-                    mohr_plot = None
-
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"mech_mohr({repr(expr)})",
-                    'assigned': None,
-                    'plotData': mohr_plot,
-                    'session': serialize_session()
-                })
-
-            elif op == 'em_maxwell_check':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
-                rho_e, _ = parse_math_input(str(params.get('rho', '0')), latest_idx)
-                J_raw = str(params.get('J', '[0, 0, 0]'))
-                J_e, _ = parse_math_input(J_raw, latest_idx)
-                if not isinstance(J_e, sp.MatrixBase):
-                    J_e = sp.Matrix(J_e) if isinstance(J_e, (list, tuple)) else sp.Matrix([0, 0, 0])
-                chk = _em_maxwell_check(expr, c_syms, t_sym, rho_e, J_e)
-                def _badge(ok): return r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if ok else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Maxwell's Differential Equations Check:}} \\ "
-                    r"&\text{1. Gauss } (\nabla\cdot\mathbf{E} - \rho/\varepsilon_0): \quad " + _badge(chk['gauss_E']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['gauss_E']['res']) + r" \\ "
-                    r"&\text{2. Gauss Magnetism } (\nabla\cdot\mathbf{B}): \quad " + _badge(chk['gauss_B']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['gauss_B']['res']) + r" \\ "
-                    r"&\text{3. Faraday } (\nabla\times\mathbf{E} + \partial_t\mathbf{B}): \quad " + _badge(chk['faraday']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['faraday']['res']) + r" \\ "
-                    r"&\text{4. Ampère-Maxwell } (\nabla\times\mathbf{B} - \mu_0\varepsilon_0\partial_t\mathbf{E} - \mu_0\mathbf{J}): \quad " + _badge(chk['ampere']['ok']) + r" \quad \text{Res} = " + sp.latex(chk['ampere']['res']) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = sp.Matrix([chk['gauss_E']['res'], chk['gauss_B']['res']])
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"em_maxwell_check({repr(expr)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'em_potentials':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
-                V_e, _ = parse_math_input(str(params.get('V', '0')), latest_idx)
-                pots = _em_potentials(expr, V_e, c_syms, t_sym)
-                E_f, B_f = pots['E'], pots['B']
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Electromagnetic Fields from Potentials:}} \\ "
-                    r"&\mathbf{B} = \nabla \times \mathbf{A} = " + sp.latex(B_f) + r" \\ "
-                    r"&\mathbf{E} = -\nabla V - \frac{\partial\mathbf{A}}{\partial t} = " + sp.latex(E_f) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = sp.Matrix([E_f.T, B_f.T]).T
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"em_potentials(A={repr(expr)}, V={repr(V_e)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'em_gauge':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                t_sym = sp.Symbol(params.get('time', 't').strip() or 't')
-                c_speed = sp.Symbol(params.get('c', 'c').strip() or 'c')
-                V_e, _ = parse_math_input(str(params.get('V', '0')), latest_idx)
-                g_res = _em_gauge(expr, V_e, c_syms, t_sym, c_speed)
-                l_badge = r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if g_res['lorenz_ok'] else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
-                c_badge = r"\text{\textcolor{#059669}{\textbf{\checkmark Satisfied (0)}}}" if g_res['coulomb_ok'] else r"\text{\textcolor{#DC2626}{\textbf{\times Non-Zero}}}"
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Gauge Invariance Condition Verifier:}} \\ "
-                    r"&\text{Lorenz Gauge } (\nabla\cdot\mathbf{A} + \frac{1}{c^2}\partial_t V): \quad " + l_badge + r" \quad \text{Res} = " + sp.latex(g_res['lorenz_res']) + r" \\ "
-                    r"&\text{Coulomb Gauge } (\nabla\cdot\mathbf{A}): \quad " + c_badge + r" \quad \text{Res} = " + sp.latex(g_res['coulomb_res']) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = g_res['lorenz_res']
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"em_gauge(A={repr(expr)}, V={repr(V_e)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'em_poynting':
-                poynt = _em_poynting(expr)
-                S_f, u_f, g_f = poynt['S'], poynt['u'], poynt['g']
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Poynting Energy Flux \& Density:}} \\ "
-                    r"&\mathbf{S} = \frac{1}{\mu_0}(\mathbf{E} \times \mathbf{B}) = " + sp.latex(S_f) + r" \\ "
-                    r"&u = \frac{1}{2}\varepsilon_0|\mathbf{E}|^2 + \frac{1}{2\mu_0}|\mathbf{B}|^2 = " + sp.latex(u_f) + r" \\ "
-                    r"&\mathbf{g} = \mu_0\varepsilon_0\mathbf{S} = \frac{\mathbf{S}}{c^2} = " + sp.latex(g_f) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = S_f
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"em_poynting({repr(expr)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-            elif op == 'em_stress_tensor':
-                coords_raw = params.get('coords', 'x, y, z')
-                c_syms = [sp.Symbol(c.strip()) for c in coords_raw.split(',') if c.strip()]
-                st_res = _em_stress_tensor(expr, c_syms)
-                T_mat = st_res['T']
-                f_vec = st_res['f']
-                custom_latex = (
-                    r"\begin{aligned} "
-                    r"&\text{\textbf{Maxwell Stress Tensor } T_{ij} \text{ \& Force Density:}} \\ "
-                    r"&\mathbf{T} = " + sp.latex(T_mat) + r" \\ "
-                    r"&\mathbf{f}_{\text{EM}} = \nabla \cdot \mathbf{T} = " + sp.latex(f_vec) + r" "
-                    r"\end{aligned}"
-                )
-                result_obj = T_mat
-                out_history[cell_index] = result_obj
-                return json.dumps({
-                    'status': 'ok',
-                    'latex': custom_latex,
-                    'approxLatex': None,
-                    'sympyCode': f"em_stress_tensor({repr(expr)})",
-                    'assigned': None,
-                    'session': serialize_session()
-                })
-
-        # Save result into Out[n] history
-        out_history[cell_index] = result_obj
-
-        # Handle explicit "Assign to Variable" box
-        if assign_to:
-            valid_var = re.sub(r'[^a-zA-Z0-9_]', '', assign_to)
-            if valid_var:
-                session_vars[valid_var] = result_obj
-                assigned_name = valid_var
-                sympy_code_shown = f"{valid_var} = {sympy_code_shown}"
-
-        # Compute Decimal / Float Approximation via sp.N()
-        approx_latex = None
-        try:
-            if hasattr(result_obj, 'removeO'):
-                num_val = sp.N(result_obj.removeO(), 8)
-            elif isinstance(result_obj, list):
-                num_val = [sp.N(item, 8) if hasattr(item, 'evalf') else item for item in result_obj]
-            else:
-                num_val = sp.N(result_obj, 8)
-            approx_latex = sp.latex(num_val)
-        except Exception:
-            approx_latex = None
-
-        warning_note = None
-        if isinstance(result_obj, sp.Integral) or (hasattr(result_obj, 'has') and result_obj.has(sp.Integral)):
-            warning_note = "No closed-form elementary antiderivative found. Try Series Expansion or Decimal Approximation."
-
-        return json.dumps({
-            'status': 'ok',
-            'latex': sp.latex(result_obj),
-            'approxLatex': approx_latex,
-            'sympyCode': sympy_code_shown,
-            'assigned': assigned_name,
-            'warning': warning_note,
-            'session': serialize_session()
-        })
-
-    except Exception as exc:
-        return json.dumps({
-            'status': 'error',
-            'message': str(exc)
-        })
-`;
+// The Python kernel (LaTeX parser, session memory, operations) lives in kernel/*.py and is
+// bundled into kernel_bundle.js by tools/build_kernel.py; it runs inside a Web Worker.
 
 // ============================================================================
 // INITIALIZATION & PYODIDE KERNEL SETUP
@@ -3929,125 +1325,192 @@ document.addEventListener('DOMContentLoaded', () => {
   bootPyodideKernel();
 });
 
+// Official jsDelivr endpoints only. pyodide.js is checked against PYODIDE_JS_SHA384 before it runs;
+// SymPy and its dependencies are checked by Pyodide against the SHA-256 hashes in pyodide-lock.json.
+const PYODIDE_VERSION = '0.26.1';
+const PYODIDE_JS_SHA384 = 'Zt+txBUVind9SDPtCx7HTNK8jiZiFKX/Cm3Ml1tEnAmGKO/QSRn1VqM+Vr45Cbrj';
 const PYODIDE_MIRRORS = [
-  { url: 'https://jsdelivr.b-cdn.net/pyodide/v0.26.1/full/', name: 'BunnyCDN' },
-  { url: 'https://cdn.jsdelivr.net/pyodide/v0.26.1/full/', name: 'jsDelivr' },
-  { url: 'https://fastly.jsdelivr.net/pyodide/v0.26.1/full/', name: 'Fastly' },
-  { url: 'https://gcore.jsdelivr.net/pyodide/v0.26.1/full/', name: 'GCore' },
-  { url: 'https://testingcf.jsdelivr.net/pyodide/v0.26.1/full/', name: 'Cloudflare' }
+  { url: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`, name: 'jsDelivr' },
+  { url: `https://fastly.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`, name: 'jsDelivr (Fastly)' },
+  { url: `https://gcore.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`, name: 'jsDelivr (Gcore)' }
 ];
 
-function ensurePyodideScriptLoaded(mirrorUrl) {
-  if (typeof loadPyodide === 'function') return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const old = document.getElementById('pyodideScript');
-    if (old) old.remove();
+const TIME_LIMIT_KEY = 'sympystudio_time_limit_s';
+const PARSER_OPTIONS_KEY = 'sympystudio_parser_options';
 
-    const s = document.createElement('script');
-    s.id = 'pyodideScript';
-    s.src = `${mirrorUrl}pyodide.js`;
-    s.crossOrigin = 'anonymous';
-    const timer = setTimeout(() => {
-      s.remove();
-      reject(new Error(`Timeout loading pyodide.js (20s)`));
-    }, 20000);
-    s.onload = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-    s.onerror = (e) => {
-      clearTimeout(timer);
-      s.remove();
-      reject(new Error(`Network blocked/failed to load pyodide.js from ${mirrorUrl}`));
-    };
-    document.head.appendChild(s);
+/**
+ * Main-thread client for the kernel worker (kernel/worker.js).
+ * Every Python call is asynchronous; Kernel.interrupt() stops the running computation.
+ */
+const Kernel = {
+  worker: null,
+  pending: new Map(),
+  nextId: 1,
+  interruptBuffer: null,
+  bootPromise: null,
+
+  // True when the page is cross-origin isolated (served by tools/serve.py): Stop then
+  // interrupts Python and keeps the session. Otherwise Stop has to restart the worker.
+  get canInterrupt() {
+    return !!this.interruptBuffer;
+  },
+
+  start() {
+    if (this.bootPromise) return this.bootPromise;
+    const bundle = window.SYMPYSTUDIO_KERNEL;
+    if (!bundle) {
+      return Promise.reject(new Error('kernel_bundle.js is missing. Run: python tools/build_kernel.py'));
+    }
+    const url = URL.createObjectURL(new Blob([bundle.worker], { type: 'text/javascript' }));
+    this.worker = new Worker(url);
+    URL.revokeObjectURL(url);
+    this.interruptBuffer = (window.crossOriginIsolated && typeof SharedArrayBuffer === 'function')
+      ? new Uint8Array(new SharedArrayBuffer(1)) : null;
+
+    this.bootPromise = new Promise((resolve, reject) => {
+      this.worker.onmessage = (ev) => {
+        const msg = ev.data;
+        if (msg.type === 'status') {
+          setKernelStatus('loading', msg.text);
+        } else if (msg.type === 'ready') {
+          resolve();
+        } else if (msg.type === 'init-error') {
+          reject(new Error(msg.message));
+        } else if (msg.type === 'result') {
+          const entry = this.pending.get(msg.id);
+          if (!entry) return;
+          this.pending.delete(msg.id);
+          clearTimeout(entry.timer);
+          if (msg.ok) {
+            entry.resolve(msg.value);
+          } else {
+            const err = new Error(msg.interrupted ? (entry.stopReason || 'Stopped before it finished; your variables are unchanged.') : msg.error);
+            err.interrupted = !!msg.interrupted;
+            entry.reject(err);
+          }
+        }
+      };
+      this.worker.onerror = (ev) => reject(new Error(ev.message || 'Kernel worker failed to start'));
+    });
+    this.worker.postMessage({
+      type: 'init',
+      mirrors: PYODIDE_MIRRORS,
+      pyodideSha384: PYODIDE_JS_SHA384,
+      python: bundle.python,
+      interruptBuffer: this.interruptBuffer
+    });
+    return this.bootPromise;
+  },
+
+  /** Call a Python function in the kernel. opts.timeLimit (seconds) stops it when exceeded. */
+  call(fn, args = [], opts = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this.worker) {
+        reject(new Error('Kernel is not running.'));
+        return;
+      }
+      const id = this.nextId++;
+      const entry = { resolve, reject, timer: null, fn };
+      const limit = opts.timeLimit;
+      if (limit && limit > 0) {
+        entry.timer = setTimeout(() => {
+          entry.timedOut = true;
+          this.interrupt(`Stopped after ${limit} s (time limit, change it in the Memory panel).`);
+        }, limit * 1000);
+      }
+      this.pending.set(id, entry);
+      if (this.interruptBuffer) this.interruptBuffer[0] = 0;
+      this.worker.postMessage({ type: 'call', id, fn, args });
+    });
+  },
+
+  get busy() {
+    return this.pending.size > 0;
+  },
+
+  /** Stop the running computation. `reason` (optional) explains why, e.g. a time limit. */
+  interrupt(reason = null) {
+    if (!this.worker || !this.busy) return;
+    if (this.interruptBuffer) {
+      this.interruptBuffer[0] = 2; // SIGINT -> KeyboardInterrupt inside Python
+      const msg = reason || 'Stopped before it finished; your variables are unchanged.';
+      for (const entry of this.pending.values()) entry.stopReason = msg;
+      // If Python does not reach a checkpoint quickly (long C-level loop), fall back to a restart.
+      const stuck = new Set(this.pending.keys());
+      setTimeout(() => {
+        if ([...stuck].some(id => this.pending.has(id))) this.restart('Python did not respond to the stop request.');
+      }, 4000);
+      return;
+    }
+    this.restart(reason || 'Stopped.');
+  },
+
+  /** Terminate the worker and boot a fresh one (session memory is lost). */
+  restart(reason = 'Stopped.') {
+    if (this.worker) this.worker.terminate();
+    this.worker = null;
+    this.bootPromise = null;
+    for (const entry of this.pending.values()) {
+      clearTimeout(entry.timer);
+      const err = new Error(`${reason} The kernel was restarted, so variables were cleared: use Run All to rebuild them.`);
+      err.interrupted = true;
+      entry.reject(err);
+    }
+    this.pending.clear();
+    AppState.kernelReady = false;
+    bootPyodideKernel();
+  }
+};
+
+function getTimeLimitSeconds() {
+  try {
+    const raw = localStorage.getItem(TIME_LIMIT_KEY);
+    if (raw !== null) return Math.max(0, parseInt(raw, 10) || 0);
+  } catch (_) {}
+  return 120;
+}
+
+function getParserOptions() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PARSER_OPTIONS_KEY) || 'null');
+    if (raw && typeof raw === 'object') return { euler_e: raw.euler_e !== false, imaginary_i: raw.imaginary_i !== false };
+  } catch (_) {}
+  return { euler_e: true, imaginary_i: true };
+}
+
+/** Wire the "Input & Kernel Settings" panel (e/i interpretation, time limit). */
+function initKernelSettingsUI() {
+  const opts = getParserOptions();
+  const eulerBox = document.getElementById('optEulerE');
+  const imagBox = document.getElementById('optImaginaryI');
+  const limitSel = document.getElementById('optTimeLimit');
+  const note = document.getElementById('interruptModeNote');
+  if (eulerBox) eulerBox.checked = opts.euler_e;
+  if (imagBox) imagBox.checked = opts.imaginary_i;
+  if (limitSel) limitSel.value = String(getTimeLimitSeconds());
+  if (note) {
+    note.textContent = window.crossOriginIsolated
+      ? 'Stop interrupts the computation and keeps your variables.'
+      : 'Stop restarts the kernel (variables are cleared). Serve the app with tools/serve.py to keep variables when stopping.';
+  }
+
+  const saveParserOptions = async () => {
+    const next = { euler_e: !!eulerBox?.checked, imaginary_i: !!imagBox?.checked };
+    try { localStorage.setItem(PARSER_OPTIONS_KEY, JSON.stringify(next)); } catch (_) {}
+    if (AppState.kernelReady) await Kernel.call('set_parser_options', [JSON.stringify(next)]);
+  };
+  eulerBox?.addEventListener('change', saveParserOptions);
+  imagBox?.addEventListener('change', saveParserOptions);
+  limitSel?.addEventListener('change', () => {
+    try { localStorage.setItem(TIME_LIMIT_KEY, limitSel.value); } catch (_) {}
   });
 }
 
 async function bootPyodideKernel() {
-  let loadedPyodide = null;
-  let lastError = null;
-
-  for (let i = 0; i < PYODIDE_MIRRORS.length; i++) {
-    const { url: mirror, name: hostTag } = PYODIDE_MIRRORS[i];
-
-    try {
-      setKernelStatus('loading', `Connecting mirror ${i + 1}/${PYODIDE_MIRRORS.length} (${hostTag})...`);
-
-      // 1. Ensure pyodide.js loader function is available
-      if (typeof loadPyodide === 'undefined') {
-        await ensurePyodideScriptLoaded(mirror);
-      }
-
-      // 2. Load Pyodide core WASM (~10MB)
-      setKernelStatus('loading', `1/3 Loading Python WASM (~10MB, ${hostTag})...`);
-      const pyodideInstance = await Promise.race([
-        loadPyodide({
-          indexURL: mirror,
-          lockFileURL: `${mirror}pyodide-lock.json`
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout loading core Python WASM (60s)')), 60000))
-      ]);
-
-      // Explicitly configure Pyodide package CDN to match current verified mirror
-      if (pyodideInstance._api && typeof pyodideInstance._api.setCdnUrl === 'function') {
-        try {
-          pyodideInstance._api.setCdnUrl(mirror);
-        } catch (_) {}
-      }
-
-      // 3. Load SymPy CAS (~16MB with mpmath)
-      setKernelStatus('loading', `2/3 Loading SymPy CAS (~16MB, ${hostTag})...`);
-      try {
-        // Direct wheel URLs from this mirror prevent any fallback to blocked domains
-        await Promise.race([
-          pyodideInstance.loadPackage([
-            `${mirror}mpmath-1.3.0-py3-none-any.whl`,
-            `${mirror}sympy-1.12-py3-none-any.whl`
-          ]),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout downloading SymPy wheels (90s)')), 90000))
-        ]);
-      } catch (wheelErr) {
-        console.warn(`Direct wheel load via ${mirror} failed, trying standard loadPackage:`, wheelErr);
-        await Promise.race([
-          pyodideInstance.loadPackage(['sympy']),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout downloading SymPy package (90s)')), 90000))
-        ]);
-      }
-
-      loadedPyodide = pyodideInstance;
-      break;
-    } catch (err) {
-      console.warn(`Pyodide load attempt via ${mirror} failed:`, err);
-      lastError = err;
-      if (i < PYODIDE_MIRRORS.length - 1) {
-        setKernelStatus('loading', `Mirror ${hostTag} failed, switching to mirror ${i + 2}/${PYODIDE_MIRRORS.length}...`);
-        await new Promise(r => setTimeout(r, 600));
-      }
-    }
-  }
-
-  if (!loadedPyodide) {
-    console.error('All Pyodide initialization attempts failed:', lastError);
-    setKernelStatus('error', 'Kernel Error: Click to Retry');
-    const pill = document.getElementById('kernelStatusPill');
-    if (pill) {
-      pill.style.cursor = 'pointer';
-      pill.title = `Error: ${lastError?.message || lastError}. Click to retry.`;
-      pill.onclick = () => {
-        pill.onclick = null;
-        bootPyodideKernel();
-      };
-    }
-    return;
-  }
-
+  setKernelStatus('loading', 'Starting kernel...');
   try {
-    setKernelStatus('loading', '3/3 Initializing CAS & Suites...');
-    await loadedPyodide.runPythonAsync(PYTHON_BOOTSTRAP_CODE);
-    await loadedPyodide.runPythonAsync(PYTHON_EVAL_RUNNER);
-
-    AppState.pyodide = loadedPyodide;
+    await Kernel.start();
+    await Kernel.call('set_parser_options', [JSON.stringify(getParserOptions())]);
     AppState.kernelReady = true;
     setKernelStatus('ready', 'Kernel: Ready (SymPy Active)');
 
@@ -4057,8 +1520,11 @@ async function bootPyodideKernel() {
       await activateKernelSessionForTab(activeTab);
     }
   } catch (err) {
-    console.error('Pyodide post-boot bootstrap error:', err);
-    setKernelStatus('error', 'CAS Error: Click to Retry');
+    console.error('Kernel start failed:', err);
+    if (Kernel.worker) Kernel.worker.terminate();
+    Kernel.worker = null;
+    Kernel.bootPromise = null;
+    setKernelStatus('error', 'Kernel Error: Click to Retry');
     const pill = document.getElementById('kernelStatusPill');
     if (pill) {
       pill.style.cursor = 'pointer';
@@ -4078,7 +1544,7 @@ function setKernelStatus(state, text) {
   const label = document.getElementById('kernelStatusText');
 
   label.textContent = text;
-  pill.className = 'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium border transition-all ';
+  pill.className = 'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium border transition-all shrink-0 ';
 
   if (state === 'loading' || state === 'busy') {
     pill.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-200');
@@ -4185,6 +1651,30 @@ function initUIHandlers() {
     }
   });
 
+  // Shared Actions for Desktop & Mobile Controls
+  async function clearSessionMemory() {
+    if (!AppState.kernelReady) return;
+    await Kernel.call('reset_session_memory');
+    AppState.evalCounter = 0;
+    AppState.symbolAssumptions = {};
+    updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
+    saveNotebookToLocalStorage();
+  }
+
+  function exportPrintNotebook() {
+    const tsEl = document.getElementById('printTimestamp');
+    if (tsEl) tsEl.textContent = 'Exported on ' + new Date().toLocaleString();
+    window.print();
+  }
+
+  function resizeAllPlots() {
+    document.querySelectorAll('.plotly-output-container:not(.hidden) > div[id^="plot_"]').forEach(plotEl => {
+      if (typeof Plotly !== 'undefined' && plotEl && plotEl.data) {
+        Plotly.Plots.resize(plotEl);
+      }
+    });
+  }
+
   // Mobile / Tablet Overflow Menu ("..." Button)
   const btnMobileMore = document.getElementById('btnMobileMore');
   const mobileMoreMenu = document.getElementById('mobileMoreMenu');
@@ -4220,8 +1710,7 @@ function initUIHandlers() {
   if (btnMobilePrint) {
     btnMobilePrint.addEventListener('click', () => {
       if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
-      document.getElementById('printTimestamp').textContent = 'Exported on ' + new Date().toLocaleString();
-      window.print();
+      exportPrintNotebook();
     });
   }
 
@@ -4229,12 +1718,7 @@ function initUIHandlers() {
   if (btnMobileClearMemory) {
     btnMobileClearMemory.addEventListener('click', async () => {
       if (mobileMoreMenu) mobileMoreMenu.classList.add('hidden');
-      if (!AppState.kernelReady) return;
-      await AppState.pyodide.runPythonAsync('reset_session_memory()');
-      AppState.evalCounter = 0;
-      AppState.symbolAssumptions = {};
-      updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
-      saveNotebookToLocalStorage();
+      await clearSessionMemory();
     });
   }
 
@@ -4261,6 +1745,7 @@ function initUIHandlers() {
   document.getElementById('btnToggleSidebar').addEventListener('click', () => {
     AppState.sidebarOpen = !AppState.sidebarOpen;
     updateSidebarVisibility();
+    setTimeout(resizeAllPlots, 220);
   });
 
   const btnCloseSidebarMobile = document.getElementById('btnCloseSidebarMobile');
@@ -4302,26 +1787,20 @@ function initUIHandlers() {
   // Auto-resize Plotly charts on window resize & orientation change
   window.addEventListener('resize', () => {
     updateSidebarVisibility();
-    document.querySelectorAll('.plotly-output-container:not(.hidden) > div[id^="plot_"]').forEach(plotEl => {
-      if (typeof Plotly !== 'undefined' && plotEl && plotEl.data) {
-        Plotly.Plots.resize(plotEl);
-      }
-    });
+    resizeAllPlots();
   });
 
   window.addEventListener('orientationchange', () => {
     setTimeout(() => {
       updateSidebarVisibility();
-      document.querySelectorAll('.plotly-output-container:not(.hidden) > div[id^="plot_"]').forEach(plotEl => {
-        if (typeof Plotly !== 'undefined' && plotEl && plotEl.data) {
-          Plotly.Plots.resize(plotEl);
-        }
-      });
+      resizeAllPlots();
     }, 200);
   });
 
   // Apply initial sidebar visibility
   updateSidebarVisibility();
+
+  initKernelSettingsUI();
 
   // Symbolic Assumptions Manager Apply Button
   const btnApplyAssumptions = document.getElementById('btnApplyAssumptions');
@@ -4341,14 +1820,7 @@ function initUIHandlers() {
   }
 
   // Clear Session Memory
-  document.getElementById('btnClearMemory').addEventListener('click', async () => {
-    if (!AppState.kernelReady) return;
-    await AppState.pyodide.runPythonAsync('reset_session_memory()');
-    AppState.evalCounter = 0;
-    AppState.symbolAssumptions = {};
-    updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
-    saveNotebookToLocalStorage();
-  });
+  document.getElementById('btnClearMemory').addEventListener('click', clearSessionMemory);
 
   // Add Visual Math Cell Bottom
   document.getElementById('btnAddCellBottom').addEventListener('click', () => {
@@ -4376,10 +1848,7 @@ function initUIHandlers() {
   document.getElementById('inputLoadJson').addEventListener('change', uploadNotebookJson);
 
   // Export Printable PDF / Clean HTML
-  document.getElementById('btnExportPrint').addEventListener('click', () => {
-    document.getElementById('printTimestamp').textContent = 'Exported on ' + new Date().toLocaleString();
-    window.print();
-  });
+  document.getElementById('btnExportPrint').addEventListener('click', exportPrintNotebook);
 
   // Preset Selector (templates open in a new tab unless the current tab is empty)
   document.getElementById('presetSelector').addEventListener('change', async (e) => {
@@ -4398,22 +1867,25 @@ function initUIHandlers() {
     });
   }
 
-  // Dismiss Welcome Banner
+  // Dismiss Welcome Banner (persisted across reloads)
+  const welcomeBannerEl = document.getElementById('welcomeBanner');
+  try {
+    if (welcomeBannerEl && localStorage.getItem('sympystudio_banner_dismissed_v1') === '1') {
+      welcomeBannerEl.classList.add('hidden');
+    }
+  } catch (_) {}
   const dismissBtn = document.getElementById('btnDismissBanner');
-  if (dismissBtn) {
+  if (dismissBtn && welcomeBannerEl) {
     dismissBtn.addEventListener('click', () => {
-      document.getElementById('welcomeBanner').classList.add('hidden');
+      welcomeBannerEl.classList.add('hidden');
+      try { localStorage.setItem('sympystudio_banner_dismissed_v1', '1'); } catch (_) {}
     });
   }
 
-  // Return to Notebook Buttons from Documentation Tab
+  // Return to Notebook Button from Documentation Tab
   const btnBackToNotebook = document.getElementById('btnBackToNotebook');
   if (btnBackToNotebook) {
     btnBackToNotebook.addEventListener('click', () => switchRibbonTab('tab-calculus'));
-  }
-  const btnDocReturnTop = document.getElementById('btnDocReturnTop');
-  if (btnDocReturnTop) {
-    btnDocReturnTop.addEventListener('click', () => switchRibbonTab('tab-calculus'));
   }
 }
 
@@ -4435,10 +1907,9 @@ async function applyAssumptionsFromUI() {
     AppState.symbolAssumptions[nm] = { positive: pos, real: rl, integer: itg, nonzero: nz };
   });
 
-  if (AppState.kernelReady && AppState.pyodide) {
+  if (AppState.kernelReady) {
     const payload = { symbols: names.join(', '), positive: pos, real: rl, integer: itg, nonzero: nz };
-    AppState.pyodide.globals.set('_assume_payload', JSON.stringify(payload));
-    const resJson = await AppState.pyodide.runPythonAsync('apply_symbol_assumptions(_assume_payload)');
+    const resJson = await Kernel.call('apply_symbol_assumptions', [JSON.stringify(payload)]);
     const parsed = JSON.parse(resJson);
     if (parsed.session) {
       updateVariableInspectorUI(parsed.session);
@@ -4452,7 +1923,7 @@ async function applyAssumptionsFromUI() {
 }
 
 async function syncSavedAssumptionsToKernel() {
-  if (!AppState.kernelReady || !AppState.pyodide) return;
+  if (!AppState.kernelReady) return;
   const entries = Object.entries(AppState.symbolAssumptions || {});
   for (const [symName, flagsObj] of entries) {
     const payload = {
@@ -4462,8 +1933,7 @@ async function syncSavedAssumptionsToKernel() {
       integer: !!flagsObj.integer,
       nonzero: !!flagsObj.nonzero
     };
-    AppState.pyodide.globals.set('_assume_payload', JSON.stringify(payload));
-    const resJson = await AppState.pyodide.runPythonAsync('apply_symbol_assumptions(_assume_payload)');
+    const resJson = await Kernel.call('apply_symbol_assumptions', [JSON.stringify(payload)]);
     const parsed = JSON.parse(resJson);
     if (parsed.session) {
       updateVariableInspectorUI(parsed.session);
@@ -4509,17 +1979,35 @@ function switchRibbonTab(tabId) {
     }
   });
 
-  // Toggle between Live Notebook View and Documentation View when Tab 6 (tab-docs) is selected
+  // Toggle between Live Notebook View and Documentation View when Tab 7 (tab-docs) is selected
   const isDocs = tabId === 'tab-docs';
   const docView = document.getElementById('documentationView');
   const cellsContainer = document.getElementById('notebookCells');
   const bottomAddWrap = document.getElementById('bottomAddCellWrap');
   const welcomeBanner = document.getElementById('welcomeBanner');
+  const tabsBar = document.getElementById('notebookTabsBar');
+  const paletteDrawer = document.getElementById('mathPaletteDrawer');
+
+  if (isDocs && docView && !docView.dataset.mathRendered && typeof renderMathInElement === 'function') {
+    // Typeset the $...$ / $$...$$ math in the guide once, on first open
+    renderMathInElement(docView, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false }
+      ],
+      throwOnError: false
+    });
+    docView.dataset.mathRendered = '1';
+  }
 
   if (docView && cellsContainer && bottomAddWrap) {
     docView.classList.toggle('hidden', !isDocs);
     cellsContainer.classList.toggle('hidden', isDocs);
     bottomAddWrap.classList.toggle('hidden', isDocs);
+    if (tabsBar) tabsBar.classList.toggle('hidden', isDocs);
+    if (paletteDrawer) {
+      paletteDrawer.classList.toggle('hidden', isDocs || !AppState.paletteOpen);
+    }
     if (welcomeBanner && isDocs) {
       welcomeBanner.classList.add('hidden');
     }
@@ -4533,7 +2021,7 @@ function switchRibbonTab(tabId) {
 function createCellModel(overrides = {}) {
   const id = overrides.id || 'cell_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   const mode = overrides.mode === 'code' ? 'code' : 'visual';
-  const op = overrides.operation || 'eval';
+  const op = normalizeOperationKey(overrides.operation || 'eval');
   const defaultParams = {};
   if (OPERATIONS[op]) {
     OPERATIONS[op].params.forEach(p => {
@@ -4573,6 +2061,16 @@ function renderAllCells() {
   }
 }
 
+function buildGroupedOperationOptions(selectedOp) {
+  return OPERATION_GROUPS.map(grp => {
+    const opts = Object.entries(OPERATIONS)
+      .filter(([, v]) => v.group === grp.id)
+      .map(([k, v]) => `<option value="${k}" ${selectedOp === k ? 'selected' : ''}>${v.label}</option>`)
+      .join('');
+    return opts ? `<optgroup label="${grp.label}">${opts}</optgroup>` : '';
+  }).join('');
+}
+
 function buildCellDOM(cell, idx) {
   const wrapper = document.createElement('div');
   wrapper.className = 'notebook-cell-wrapper relative group';
@@ -4580,7 +2078,7 @@ function buildCellDOM(cell, idx) {
 
   const isCodeMode = cell.mode === 'code';
   const card = document.createElement('article');
-  card.className = `notebook-cell p-4 ${isCodeMode ? 'code-mode-cell' : ''} ${AppState.activeCellId === cell.id ? 'active-cell' : ''}`;
+  card.className = `notebook-cell p-3.5 sm:p-4 ${isCodeMode ? 'code-mode-cell' : ''} ${AppState.activeCellId === cell.id ? 'active-cell' : ''}`;
   card.id = `dom_${cell.id}`;
 
   const inLabel = cell.inIndex ? `In [${cell.inIndex}]:` : `In [ ]:`;
@@ -4588,56 +2086,43 @@ function buildCellDOM(cell, idx) {
     ? `<span class="text-[11px] font-mono text-emerald bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">${cell.execTimeMs} ms</span>`
     : '';
 
-  // Operation Select Dropdown Options
-  const opOptionsHtml = Object.entries(OPERATIONS).map(([k, v]) => {
-    const sel = cell.operation === k ? 'selected' : '';
-    return `<option value="${k}" ${sel}>${v.label}</option>`;
-  }).join('');
-
-  const titleBannerHtml = cell.title
-    ? `<div class="mb-2 px-2.5 py-1 rounded bg-subtle/80 border-l-2 border-cobalt text-xs font-serif font-semibold text-ink flex items-center justify-between">
-         <span>${escapeHtml(cell.title)}</span>
-       </div>`
-    : '';
+  const opOptionsHtml = buildGroupedOperationOptions(cell.operation);
+  const inlineTitleHtml = cell.title
+    ? `<span class="text-xs font-serif font-semibold text-ink truncate max-w-[260px] sm:max-w-[440px]" title="${escapeHtml(cell.title)}">${escapeHtml(cell.title)}</span>`
+    : `<span class="cell-mode-label text-[11px] font-mono text-muted ${isCodeMode ? 'inline' : 'hidden'}">Python / SymPy Script</span>`;
 
   card.innerHTML = `
-    ${titleBannerHtml}
-    <!-- 1. Cell Header Bar with Dual-Mode Switcher & Bi-Directional Bridge -->
+    <!-- 1. Compact Cell Header Bar with Inline Title & Dual-Mode Controls -->
     <div class="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2 pb-1.5 border-b border-borderWarm/70">
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <span class="cell-drag-handle cursor-grab text-muted hover:text-ink print-hidden" title="Move Cell Up/Down">
+      <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <span class="cell-drag-handle cursor-grab text-muted hover:text-ink print-hidden shrink-0" title="Move Cell Up/Down">
           <button class="btn-move-up hover:text-cobalt px-0.5" title="Move Cell Up">&uarr;</button>
           <button class="btn-move-down hover:text-cobalt px-0.5" title="Move Cell Down">&darr;</button>
         </span>
-        <span class="cell-in-badge font-mono font-semibold text-xs text-cobalt bg-blue-50/80 px-1.5 sm:px-2 py-0.5 rounded border border-blue-200/80 select-none">
+        <span class="cell-in-badge font-mono font-semibold text-xs text-cobalt bg-blue-50/80 px-1.5 sm:px-2 py-0.5 rounded border border-blue-200/80 select-none shrink-0">
           ${inLabel}
         </span>
-        <span class="cell-mode-label text-xs font-medium text-muted hidden md:inline truncate max-w-[200px]">
-          ${isCodeMode ? 'Direct SymPy Code (Python Script)' : (OPERATIONS[cell.operation]?.label || 'Symbolic Evaluation')}
-        </span>
+        ${inlineTitleHtml}
       </div>
 
-      <div class="flex flex-wrap items-center gap-1 sm:gap-1.5 print-hidden ml-auto">
+      <div class="flex flex-wrap items-center gap-1 sm:gap-1.5 print-hidden ml-auto shrink-0">
         <!-- Dual-Mode Toggle Pill -->
         <div class="inline-flex rounded-md bg-subtle p-0.5 border border-borderWarm text-[11px] font-medium">
-          <button type="button" class="btn-mode-visual px-1.5 sm:px-2 py-0.5 rounded transition ${!isCodeMode ? 'bg-surface text-cobalt shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
+          <button type="button" class="btn-mode-visual px-2 py-0.5 rounded transition ${!isCodeMode ? 'bg-surface text-cobalt shadow-2xs font-semibold' : 'text-muted hover:text-ink'}" title="Visual MathLive Equation Mode">
             Visual Math
           </button>
-          <button type="button" class="btn-mode-code px-1.5 sm:px-2 py-0.5 rounded font-mono transition ${isCodeMode ? 'bg-zinc-900 text-emerald-400 shadow-2xs font-semibold' : 'text-muted hover:text-ink'}">
+          <button type="button" class="btn-mode-code px-2 py-0.5 rounded font-mono transition ${isCodeMode ? 'bg-zinc-900 text-emerald-400 shadow-2xs font-semibold' : 'text-muted hover:text-ink'}" title="Direct SymPy Python Script Mode">
             SymPy Code
           </button>
         </div>
 
-        <!-- Bi-Directional Bridge Button: Convert Visual Math -> SymPy Code -->
-        <button type="button" class="btn-convert-to-code ${isCodeMode ? 'hidden' : 'inline-flex'} items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition" title="Convert Visual Equation + Selected Operation into Editable SymPy Python Code">
-          <span class="hidden sm:inline">&rarr; Convert to SymPy Code</span>
-          <span class="sm:hidden">&rarr; Code</span>
+        <!-- Compact Bi-Directional Sync Button -->
+        <button type="button" class="btn-convert-to-code ${isCodeMode ? 'hidden' : 'inline-flex'} items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition" title="Generate Editable SymPy Python Script from Visual Equation + Operation">
+          <span>&#8644; Sync Code</span>
         </button>
 
-        <!-- Bi-Directional Bridge Button: Convert SymPy Code -> Visual Math -->
-        <button type="button" class="btn-convert-to-visual ${isCodeMode ? 'inline-flex' : 'hidden'} items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-blue-50 text-cobalt hover:bg-cobalt hover:text-white border border-blue-200 transition" title="Convert Python / SymPy Code back to Visual Math Equation">
-          <span class="hidden sm:inline">&larr; Convert to Visual Math</span>
-          <span class="sm:hidden">&larr; Visual</span>
+        <button type="button" class="btn-convert-to-visual ${isCodeMode ? 'inline-flex' : 'hidden'} items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-blue-50 text-cobalt hover:bg-cobalt hover:text-white border border-blue-200 transition" title="Parse SymPy Code back into Visual Math Equation">
+          <span>&#8644; Sync Math</span>
         </button>
 
         <span class="cell-time-badge hidden sm:inline">${timeBadge}</span>
@@ -4648,58 +2133,54 @@ function buildCellDOM(cell, idx) {
     </div>
 
     <!-- 2A. Visual MathLive Input Zone -->
-    <div class="visual-input-zone mb-3 ${isCodeMode ? 'hidden' : ''}">
+    <div class="visual-input-zone mb-2.5 ${isCodeMode ? 'hidden' : ''}">
       <math-field id="mf_${cell.id}"></math-field>
     </div>
 
     <!-- 2B. Direct SymPy Code Input Zone (CodeMirror / Python Script) -->
-    <div class="code-input-zone mb-3 ${isCodeMode ? '' : 'hidden'}">
+    <div class="code-input-zone mb-2.5 ${isCodeMode ? '' : 'hidden'}">
       <div class="code-editor-wrapper">
         <textarea id="cm_${cell.id}" class="code-fallback-textarea" spellcheck="false" placeholder="# Enter multi-line Python / SymPy code...&#10;# Assign 'result = ...' or end with an expression on the last line to render in KaTeX."></textarea>
       </div>
-      <div class="mt-1 flex items-center justify-between text-[11px] font-mono text-muted px-1">
-        <span>Contract: Assign <code class="text-cobalt">result</code> or end with an expression to render KaTeX; <code class="text-emerald">print()</code> / <code class="text-emerald">sp.pprint()</code> streams to terminal log.</span>
-        <span class="hidden sm:inline">Shift + Enter to Run</span>
-      </div>
       <!-- Live Visual Math rendering of the typed code (updates as you type) -->
-      <div class="code-visual-preview mt-2 rounded-md border border-blue-200/80 bg-blue-50/40 hidden">
+      <div class="code-visual-preview mt-1.5 rounded-md border border-blue-200/80 bg-blue-50/40 hidden">
         <div class="flex items-center justify-between px-2.5 py-1 border-b border-blue-200/70 text-[10px] font-mono uppercase tracking-wider text-cobalt select-none">
-          <span>&Sigma; Visual Math (live from code)</span>
+          <span>&Sigma; Live Symbolic Preview <span class="normal-case text-muted font-normal">(assign <code class="text-cobalt">result</code> or final expression; <code class="text-emerald">print()</code> streams to stdout)</span></span>
           <span class="code-preview-status normal-case tracking-normal text-muted"></span>
         </div>
-        <div class="code-preview-body px-3 py-2 space-y-1 overflow-x-auto text-sm"></div>
+        <div class="code-preview-body px-3 py-1.5 space-y-1 overflow-x-auto text-sm"></div>
       </div>
     </div>
 
     <!-- 3. Execution Controls & Parameter Bar -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 text-xs print-hidden">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-0.5 text-xs print-hidden">
       <div class="visual-controls-bar flex flex-wrap items-center gap-1.5 sm:gap-2 ${isCodeMode ? 'hidden' : ''}">
-        <!-- Operation Selector -->
-        <select class="cell-op-select w-full sm:w-auto bg-subtle hover:bg-zinc-200/60 text-ink font-medium rounded px-2.5 py-1.5 border border-borderWarm focus:outline-none focus:border-cobalt cursor-pointer">
+        <!-- Grouped Operation Selector -->
+        <select class="cell-op-select w-full sm:w-auto bg-subtle hover:bg-zinc-200/60 text-ink font-medium rounded px-2.5 py-1 border border-borderWarm focus:outline-none focus:border-cobalt cursor-pointer" title="Select Symbolic Operation">
           ${opOptionsHtml}
         </select>
 
         <!-- Dynamic Operation Parameters Container -->
-        <div class="cell-params-container flex flex-wrap items-center gap-1.5 sm:gap-2"></div>
+        <div class="cell-params-container flex flex-wrap items-center gap-1.5"></div>
       </div>
 
       <div class="flex items-center justify-between sm:justify-end gap-2 sm:ml-auto w-full sm:w-auto">
         <!-- Assign to Variable Optional Field -->
-        <label class="flex items-center gap-1.5 bg-subtle/70 px-2 py-1 rounded border border-borderWarm text-muted">
+        <label class="flex items-center gap-1.5 bg-subtle/70 px-2 py-1 rounded border border-borderWarm text-muted" title="Optional: Store output in a session variable">
           <span class="text-[11px] font-mono">Assign:</span>
           <input type="text" class="cell-assign-input w-16 sm:w-20 bg-surface px-1.5 py-0.5 rounded border border-borderWarm font-mono text-xs text-ink focus:outline-none focus:border-cobalt" placeholder="e.g. Sol1" value="${cell.assignTo || ''}" />
         </label>
 
         <!-- Evaluate Button -->
-        <button class="btn-evaluate-cell px-3.5 py-1.5 rounded-md bg-cobalt hover:bg-blue-800 text-white font-semibold shadow-2xs transition flex items-center gap-1.5 ml-auto sm:ml-0">
+        <button class="btn-evaluate-cell px-3.5 py-1 rounded-md bg-cobalt hover:bg-blue-800 text-white font-semibold shadow-2xs transition flex items-center gap-1.5 ml-auto sm:ml-0" title="Evaluate Cell (Shift + Enter)">
           <span>${isCodeMode ? 'Run Script' : 'Evaluate'}</span>
-          <kbd class="text-[10px] font-mono bg-blue-900/60 px-1 rounded hidden sm:inline">&crarr;</kbd>
+          <kbd class="text-[10px] font-mono bg-blue-900/60 px-1 rounded hidden sm:inline">Shift+&crarr;</kbd>
         </button>
       </div>
     </div>
 
     <!-- 4. Output Zone (Out [n]:) -->
-    <div class="cell-output-zone mt-3 ${cell.output ? '' : 'hidden'}"></div>
+    <div class="cell-output-zone mt-2.5 ${cell.output ? '' : 'hidden'}"></div>
   `;
 
   wrapper.appendChild(card);
@@ -4789,7 +2270,7 @@ function buildCellDOM(cell, idx) {
   // Operation Selector Change
   const opSelect = card.querySelector('.cell-op-select');
   opSelect.addEventListener('change', () => {
-    const newOp = opSelect.value;
+    const newOp = normalizeOperationKey(opSelect.value);
     cell.operation = newOp;
     const opMeta = OPERATIONS[newOp];
     if (opMeta) {
@@ -4798,10 +2279,6 @@ function buildCellDOM(cell, idx) {
           cell.params[p.key] = p.default;
         }
       });
-    }
-    const modeLabel = card.querySelector('.cell-mode-label');
-    if (modeLabel && cell.mode === 'visual') {
-      modeLabel.textContent = OPERATIONS[cell.operation]?.label || 'Symbolic Evaluation';
     }
     renderCellParams(card, cell);
     saveNotebookToLocalStorage();
@@ -4825,6 +2302,11 @@ function buildCellDOM(cell, idx) {
 
   // Evaluate button
   card.querySelector('.btn-evaluate-cell').addEventListener('click', () => {
+    if (AppState.runningCellId === cell.id) {
+      AppState.stopRunAll = true;
+      Kernel.interrupt();
+      return;
+    }
     evaluateCell(cell.id);
   });
 
@@ -4939,7 +2421,7 @@ async function refreshCodePreview(cell) {
     panel.classList.add('hidden');
     return;
   }
-  if (!AppState.kernelReady || !AppState.pyodide) {
+  if (!AppState.kernelReady) {
     panel.classList.remove('hidden');
     statusEl.textContent = 'waiting for kernel…';
     return;
@@ -4951,8 +2433,7 @@ async function refreshCodePreview(cell) {
 
   let parsed;
   try {
-    AppState.pyodide.globals.set('_preview_code', cell.code);
-    parsed = JSON.parse(await AppState.pyodide.runPythonAsync('code_visual_preview(_preview_code)'));
+    parsed = JSON.parse(await Kernel.call('code_visual_preview', [cell.code]));
   } catch (e) {
     parsed = { status: 'error', message: e.message || String(e), rows: [] };
   }
@@ -5010,9 +2491,8 @@ function switchCellMode(cell, card, targetMode) {
 
   const modeLabel = card.querySelector('.cell-mode-label');
   if (modeLabel) {
-    modeLabel.textContent = isCode
-      ? 'Direct SymPy Code (Python Script)'
-      : (OPERATIONS[cell.operation]?.label || 'Symbolic Evaluation');
+    modeLabel.classList.toggle('hidden', !isCode);
+    modeLabel.classList.toggle('inline', isCode);
   }
 
   if (isCode) {
@@ -5043,7 +2523,7 @@ async function convertVisualCellToSympyCode(cell, card) {
   if (mf) cell.latex = mf.value;
 
   let generatedCode = '';
-  if (AppState.kernelReady && AppState.pyodide) {
+  if (AppState.kernelReady) {
     try {
       const payload = {
         latex: cell.latex,
@@ -5051,8 +2531,7 @@ async function convertVisualCellToSympyCode(cell, card) {
         params: cell.params,
         assignTo: cell.assignTo
       };
-      AppState.pyodide.globals.set('_conv_payload', JSON.stringify(payload));
-      const resJson = await AppState.pyodide.runPythonAsync('convert_visual_to_sympy_code(_conv_payload)');
+      const resJson = await Kernel.call('convert_visual_to_sympy_code', [JSON.stringify(payload)]);
       const parsed = JSON.parse(resJson);
       if (parsed.status === 'ok' && parsed.code) {
         generatedCode = parsed.code;
@@ -5085,10 +2564,9 @@ async function convertCodeCellToVisualMath(cell, card) {
     if (rawTextarea) cell.code = rawTextarea.value;
   }
 
-  if (AppState.kernelReady && AppState.pyodide && (cell.code || '').trim()) {
+  if (AppState.kernelReady && (cell.code || '').trim()) {
     try {
-      AppState.pyodide.globals.set('_code_conv_payload', cell.code);
-      const resJson = await AppState.pyodide.runPythonAsync('convert_code_to_visual(_code_conv_payload)');
+      const resJson = await Kernel.call('convert_code_to_visual', [cell.code]);
       const parsed = JSON.parse(resJson);
       if (parsed.status === 'ok') {
         if (parsed.latex) cell.latex = parsed.latex;
@@ -5153,10 +2631,25 @@ function renderCellParams(card, cell) {
     }
 
     const inputEl = wrap.querySelector('[data-param]');
-    inputEl.addEventListener('input', () => {
+    const onParamChange = () => {
       cell.params[p.key] = inputEl.value;
+      // Ergonomic auto-sync: when curvilinear coordinate system changes, update default coords string automatically
+      if (p.key === 'system' && COORD_SYSTEM_DEFAULTS[inputEl.value]) {
+        const coordsInput = container.querySelector('[data-param="coords"]');
+        const currentCoords = (cell.params.coords || '').trim();
+        const defaultCoordSet = Object.values(COORD_SYSTEM_DEFAULTS);
+        if (!currentCoords || defaultCoordSet.includes(currentCoords)) {
+          const nextCoords = COORD_SYSTEM_DEFAULTS[inputEl.value];
+          cell.params.coords = nextCoords;
+          if (coordsInput) coordsInput.value = nextCoords;
+        }
+      }
       saveNotebookToLocalStorage();
-    });
+    };
+    inputEl.addEventListener('input', onParamChange);
+    if (p.type === 'select') {
+      inputEl.addEventListener('change', onParamChange);
+    }
     inputEl.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         ev.preventDefault();
@@ -5203,10 +2696,11 @@ function renderCellOutput(card, cell) {
       <div class="p-3 rounded-lg bg-amber-50/90 border border-amber-300 text-amber-900 text-xs flex items-start gap-2.5">
         <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
         <div class="flex-1 min-w-0">
-          <p class="font-semibold">Symbolic Evaluation Notice</p>
+          <p class="font-semibold">${out.interrupted ? 'Computation stopped' : 'Symbolic Evaluation Notice'}</p>
           <p class="mt-0.5 font-mono text-[11px] opacity-90">${escapeHtml(out.message)}</p>
+          ${(out.parseWarnings || []).map(w => `<p class="mt-1 text-[11px]">&#9888; ${escapeHtml(w)}</p>`).join('')}
           ${errStdout}
-          <p class="mt-1 text-[11px] text-amber-800">Check syntax, parentheses, or symbol definitions.</p>
+          ${out.interrupted ? '' : '<p class="mt-1 text-[11px] text-amber-800">Check syntax, parentheses, or symbol definitions.</p>'}
         </div>
       </div>
     `;
@@ -5218,9 +2712,15 @@ function renderCellOutput(card, cell) {
     ? `<span class="text-[11px] font-mono bg-orange-50 text-terracotta border border-orange-200 px-2 py-0.5 rounded">Assigned &rarr; <strong>${escapeHtml(out.assigned)}</strong></span>`
     : '';
 
-  const warningHtml = out.warning
-    ? `<div class="mb-2 px-2.5 py-1.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
-         <span>&#9888;</span> <span>${escapeHtml(out.warning)}</span>
+  const warningHtml = [out.warning, ...(out.parseWarnings || [])].filter(Boolean).map(w =>
+    `<div class="mb-2 px-2.5 py-1.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+       <span>&#9888;</span> <span>${escapeHtml(w)}</span>
+     </div>`).join('');
+
+  const parsedHtml = out.parsedLatex
+    ? `<div class="parsed-as-row mb-2 flex items-center gap-2 text-[11px] text-muted" title="How the input was understood. If this is not what you meant, edit the input.">
+         <span class="font-mono uppercase tracking-wider shrink-0">Parsed as</span>
+         <span class="parsed-as-katex min-w-0 overflow-x-auto overflow-y-hidden py-1 text-ink text-sm"></span>
        </div>`
     : '';
 
@@ -5263,6 +2763,7 @@ function renderCellOutput(card, cell) {
 
   outZone.innerHTML = `
     <div class="pt-3 border-t border-borderWarm/80">
+      ${parsedHtml}
       ${warningHtml}
       <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
         <div class="flex items-center gap-2">
@@ -5313,6 +2814,15 @@ function renderCellOutput(card, cell) {
       </details>
     </div>
   `;
+
+  const parsedBox = outZone.querySelector('.parsed-as-katex');
+  if (parsedBox) {
+    try {
+      katex.render(out.parsedLatex, parsedBox, { displayMode: false, throwOnError: false });
+    } catch (e) {
+      parsedBox.textContent = out.parsedLatex;
+    }
+  }
 
   // Render KaTeX
   const katexBox = outZone.querySelector('.katex-output-container');
@@ -5399,7 +2909,7 @@ function renderCellOutput(card, cell) {
 }
 
 async function recomputePlotWithSliders(cell, paramValues) {
-  if (!AppState.kernelReady || !AppState.pyodide) return;
+  if (!AppState.kernelReady) return;
   try {
     const payload = {
       latex: cell.latex,
@@ -5407,8 +2917,7 @@ async function recomputePlotWithSliders(cell, paramValues) {
       params: cell.params,
       paramValues
     };
-    AppState.pyodide.globals.set('_slider_payload', JSON.stringify(payload));
-    const rawRes = await AppState.pyodide.runPythonAsync('recompute_plot_with_params(_slider_payload)');
+    const rawRes = await Kernel.call('recompute_plot_with_params', [JSON.stringify(payload)], { timeLimit: getTimeLimitSeconds() });
     const parsed = JSON.parse(rawRes);
     if (parsed.status === 'ok' && parsed.plotData) {
       cell.output.plotData = parsed.plotData;
@@ -5565,12 +3074,16 @@ async function evaluateCell(cellId) {
     }
   }
 
-  if (!AppState.kernelReady || !AppState.pyodide) {
+  if (!AppState.kernelReady) {
+    return;
+  }
+  if (cell.mode === 'code' && !confirmUntrustedCode()) {
     return;
   }
 
   setActiveCell(cell.id, false);
   setKernelStatus('busy', 'Kernel: Busy (Evaluating Symbolic Expression)...');
+  setCellRunning(cell.id, true);
 
   const t0 = performance.now();
   AppState.evalCounter += 1;
@@ -5588,8 +3101,7 @@ async function evaluateCell(cellId) {
 
   try {
     AppState.kernelBusy = true;
-    AppState.pyodide.globals.set('_cell_payload_json', JSON.stringify(payload));
-    const rawResultJson = await AppState.pyodide.runPythonAsync('execute_notebook_cell(_cell_payload_json)');
+    const rawResultJson = await Kernel.call('execute_notebook_cell', [JSON.stringify(payload)], { timeLimit: getTimeLimitSeconds() });
     const response = JSON.parse(rawResultJson);
 
     const t1 = performance.now();
@@ -5605,6 +3117,8 @@ async function evaluateCell(cellId) {
         stdout: response.stdout || '',
         assigned: response.assigned,
         warning: response.warning,
+        parsedLatex: cell.mode === 'code' ? null : (response.parsedLatex || null),
+        parseWarnings: response.warnings || [],
         plotData: response.plotData || null
       };
       if (response.session) {
@@ -5614,18 +3128,23 @@ async function evaluateCell(cellId) {
       cell.output = {
         status: 'error',
         message: response.message || 'Unable to parse or evaluate expression.',
+        parseWarnings: response.warnings || [],
         stdout: response.stdout || ''
       };
     }
   } catch (err) {
+    if (err.interrupted) AppState.stopRunAll = true;
+    cell.execTimeMs = Math.round(performance.now() - t0);
     cell.output = {
       status: 'error',
+      interrupted: !!err.interrupted,
       message: err.message || String(err)
     };
   }
 
   AppState.kernelBusy = false;
-  setKernelStatus('ready', 'Kernel: Ready (SymPy Active)');
+  setCellRunning(cell.id, false);
+  if (AppState.kernelReady) setKernelStatus('ready', 'Kernel: Ready (SymPy Active)');
 
   // Update Cell DOM Header & Output
   const card = document.getElementById(`dom_${cell.id}`);
@@ -5644,10 +3163,52 @@ async function evaluateCell(cellId) {
   saveNotebookToLocalStorage();
 }
 
+/** Imported notebooks may contain Python written by someone else: ask once before running it. */
+function confirmUntrustedCode() {
+  const tab = getActiveTab();
+  if (!tab || !tab.untrusted) return true;
+  const n = tab.cells.filter(c => c.mode === 'code' && (c.code || '').trim()).length;
+  const ok = window.confirm(
+    `"${tab.name}" was imported from a file and contains ${n} Python code cell(s).\n\n` +
+    'Python runs in a sandboxed worker in this browser tab, but it can make network requests. ' +
+    'Only run code from notebooks you trust.\n\nRun the code cells in this notebook?'
+  );
+  if (ok) {
+    tab.untrusted = false;
+    saveNotebookToLocalStorage();
+  } else {
+    AppState.stopRunAll = true;
+  }
+  return ok;
+}
+
+/** Toggle a cell's Evaluate button into a Stop button while the kernel works on it. */
+function setCellRunning(cellId, running) {
+  AppState.runningCellId = running ? cellId : (AppState.runningCellId === cellId ? null : AppState.runningCellId);
+  const card = document.getElementById(`dom_${cellId}`);
+  const btn = card && card.querySelector('.btn-evaluate-cell');
+  if (!btn) return;
+  const span = btn.querySelector('span');
+  const cell = AppState.cells.find(c => c.id === cellId);
+  if (running) {
+    btn.classList.remove('bg-cobalt', 'hover:bg-blue-800');
+    btn.classList.add('bg-red-700', 'hover:bg-red-800');
+    btn.title = Kernel.canInterrupt ? 'Stop this computation' : 'Stop this computation (restarts the kernel and clears variables)';
+    if (span) span.textContent = 'Stop';
+  } else {
+    btn.classList.remove('bg-red-700', 'hover:bg-red-800');
+    btn.classList.add('bg-cobalt', 'hover:bg-blue-800');
+    btn.title = 'Evaluate Cell (Shift + Enter)';
+    if (span) span.textContent = cell && cell.mode === 'code' ? 'Run Script' : 'Evaluate';
+  }
+}
+
 async function evaluateAllCells() {
   if (!AppState.kernelReady) return;
   const startTabId = AppState.activeTabId;
+  AppState.stopRunAll = false;
   for (const cell of AppState.cells.slice()) {
+    if (AppState.stopRunAll) return;
     if (AppState.activeTabId !== startTabId) {
       // User switched tabs mid-run: mark the old tab for a clean re-run when revisited
       const oldTab = AppState.tabs.find(t => t.id === startTabId);
@@ -5729,7 +3290,8 @@ function insertLatexIntoActiveMathField(latexSnippet) {
   saveNotebookToLocalStorage();
 }
 
-function applyOperationToActiveCell(opKey) {
+function applyOperationToActiveCell(rawOpKey) {
+  const opKey = normalizeOperationKey(rawOpKey);
   const cell = getActiveCell();
   if (!cell || !OPERATIONS[opKey]) return;
 
@@ -5748,8 +3310,6 @@ function applyOperationToActiveCell(opKey) {
   if (card) {
     const select = card.querySelector('.cell-op-select');
     if (select) select.value = opKey;
-    const modeLabel = card.querySelector('.cell-mode-label');
-    if (modeLabel) modeLabel.textContent = OPERATIONS[opKey].label;
     renderCellParams(card, cell);
   }
   saveNotebookToLocalStorage();
@@ -5927,19 +3487,19 @@ function updateVariableInspectorUI(sessionData) {
   }
 
   if (vars.length === 0) {
-    varsListEl.innerHTML = `<p class="text-muted italic text-xs py-2">No custom symbols or functions assigned yet.</p>`;
+    varsListEl.innerHTML = `<p class="text-muted italic text-xs py-1.5">No custom symbols or functions assigned yet.</p>`;
   } else {
     varsListEl.innerHTML = '';
     vars.forEach(v => {
       const item = document.createElement('div');
-      item.className = 'p-2 rounded bg-paper border border-borderWarm hover:border-cobalt/50 transition cursor-pointer';
-      item.title = 'Click to insert symbol into active cell';
+      item.className = 'px-2 py-1.5 rounded bg-paper border border-borderWarm hover:border-cobalt/60 transition cursor-pointer flex items-center justify-between gap-2';
+      item.title = `Click to insert ${v.name} into active cell`;
       item.innerHTML = `
-        <div class="flex items-center justify-between mb-1">
-          <span class="font-mono font-semibold text-cobalt text-xs">${escapeHtml(v.name)}</span>
-          <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-subtle text-muted">${escapeHtml(v.type)}</span>
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          <span class="font-mono font-semibold text-cobalt text-xs shrink-0">${escapeHtml(v.name)} =</span>
+          <div class="var-katex-preview overflow-x-auto text-xs py-0.5 min-w-0"></div>
         </div>
-        <div class="var-katex-preview overflow-x-auto text-xs py-0.5"></div>
+        <span class="text-[9px] font-mono px-1 py-0.5 rounded bg-subtle text-muted shrink-0">${escapeHtml(v.type)}</span>
       `;
       const preview = item.querySelector('.var-katex-preview');
       try {
@@ -5956,19 +3516,19 @@ function updateVariableInspectorUI(sessionData) {
   }
 
   if (outs.length === 0) {
-    outListEl.innerHTML = `<p class="text-muted italic text-xs py-2">Evaluate a cell to populate <code class="font-mono">%1, %2</code> history.</p>`;
+    outListEl.innerHTML = `<p class="text-muted italic text-xs py-1.5">Evaluate a cell to populate <code class="font-mono">%1, %2</code> history.</p>`;
   } else {
     outListEl.innerHTML = '';
     outs.slice().reverse().forEach(o => {
       const item = document.createElement('div');
-      item.className = 'p-2 rounded bg-paper border border-borderWarm hover:border-terracotta/50 transition cursor-pointer';
-      item.title = `Click to insert %${o.index} reference into active cell`;
+      item.className = 'px-2 py-1.5 rounded bg-paper border border-borderWarm hover:border-terracotta/60 transition cursor-pointer flex items-center justify-between gap-2';
+      item.title = `Click to insert %${o.index} (Out[${o.index}]) into active cell`;
       item.innerHTML = `
-        <div class="flex items-center justify-between mb-1">
-          <span class="font-mono font-semibold text-terracotta text-xs">%${o.index}</span>
-          <span class="text-[10px] font-mono text-muted">Out[${o.index}]</span>
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          <span class="font-mono font-semibold text-terracotta text-xs shrink-0">%${o.index}:</span>
+          <div class="out-katex-preview overflow-x-auto text-xs py-0.5 min-w-0"></div>
         </div>
-        <div class="out-katex-preview overflow-x-auto text-xs py-0.5"></div>
+        <span class="text-[9px] font-mono text-muted shrink-0">Out[${o.index}]</span>
       `;
       const preview = item.querySelector('.out-katex-preview');
       try {
@@ -6068,12 +3628,11 @@ function renderTabsBar() {
 }
 
 async function activateKernelSessionForTab(tab, autoEval = false) {
-  if (!AppState.kernelReady || !AppState.pyodide || !tab) return;
-  AppState.pyodide.globals.set('_tab_id', tab.id);
-  const parsed = JSON.parse(await AppState.pyodide.runPythonAsync('switch_session(_tab_id)'));
+  if (!AppState.kernelReady || !tab) return;
+  const parsed = JSON.parse(await Kernel.call('switch_session', [tab.id]));
   if (!tab.evaluated) {
     tab.evaluated = true;
-    await AppState.pyodide.runPythonAsync('reset_session_memory()');
+    await Kernel.call('reset_session_memory');
     AppState.evalCounter = 0;
     updateVariableInspectorUI({ vars: [], outs: [], assumptions: [] });
     await syncSavedAssumptionsToKernel();
@@ -6148,9 +3707,8 @@ async function closeTab(tabId) {
   } else {
     renderTabsBar();
   }
-  if (AppState.kernelReady && AppState.pyodide) {
-    AppState.pyodide.globals.set('_drop_tab_id', tab.id);
-    await AppState.pyodide.runPythonAsync('drop_session(_drop_tab_id)');
+  if (AppState.kernelReady) {
+    await Kernel.call('drop_session', [tab.id]);
   }
   saveNotebookToLocalStorage();
 }
@@ -6183,6 +3741,7 @@ function saveNotebookToLocalStorage() {
         id: t.id,
         name: t.name,
         symbolAssumptions: t.symbolAssumptions || {},
+        untrusted: !!t.untrusted,
         cells: serializeCells(t.cells)
       }))
     }));
@@ -6205,6 +3764,7 @@ function loadNotebookFromStorageOrDefault() {
             id: t.id || makeTabId(),
             name: t.name || 'Untitled',
             symbolAssumptions: t.symbolAssumptions || {},
+            untrusted: !!t.untrusted,
             cells: t.cells.length ? t.cells.map(c => createCellModel(c)) : [createCellModel({ mode: 'visual' })],
             evalCounter: 0,
             evaluated: false
@@ -6305,8 +3865,11 @@ function uploadNotebookJson(ev) {
       if (data && Array.isArray(data.cells)) {
         const cells = data.cells.map(c => createCellModel({ ...c, id: undefined }));
         const name = data.name || file.name.replace(/\.json$/i, '');
-        // Imported notebooks open in their own tab
-        await openNewTab(name, cells, data.symbolAssumptions || {});
+        // Imported notebooks open in their own tab. Their Python code cells only run after the
+        // user confirms once (see confirmUntrustedCode).
+        const tab = await openNewTab(name, cells, data.symbolAssumptions || {});
+        tab.untrusted = cells.some(c => c.mode === 'code' && (c.code || '').trim());
+        saveNotebookToLocalStorage();
       }
     } catch (err) {
       alert('Invalid Notebook JSON file: ' + err.message);
